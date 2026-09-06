@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: le-consulat-backend
+  profiles:
+    active: dev
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:le-consulat-super-secret-key-change-me-in-production-0123456789ABCDEF}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  cors:
+    frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  uploads:
+    dir: ${UPLOADS_DIR:./uploads}
+  backups:
+    dir: ${BACKUPS_DIR:./backups}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: alpha
+    tagsSorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
