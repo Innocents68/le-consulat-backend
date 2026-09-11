@@ -12,7 +12,10 @@ services:
     volumes:
       - leconsulat-db-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      # Bound to localhost only — Postgres has no business being reachable from the public
+      # internet. Use an SSH tunnel (`ssh -L 5432:localhost:5432 user@server`) for a local
+      # psql/GUI client if needed.
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-leconsulat}"]
       interval: 10s
@@ -41,7 +44,10 @@ services:
       - leconsulat-uploads:/app/uploads
       - leconsulat-backups:/app/backups
     ports:
-      - "8080:8080"
+      # Bound to localhost only — Nginx (or whatever reverse proxy sits in front) is the one
+      # public-facing surface; it proxies to this port over loopback. Never expose 8080 directly
+      # to the internet, that skips HTTPS entirely.
+      - "127.0.0.1:8080:8080"
 
 volumes:
   leconsulat-db-data:

@@ -2,6 +2,7 @@ target/
 data/
 backups/
 uploads/
+.env
 *.mv.db
 *.trace.db
 .idea/
