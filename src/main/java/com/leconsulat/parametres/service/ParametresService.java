@@ -1,107 +1,124 @@
 package com.leconsulat.parametres.service;
 
-import com.leconsulat.common.audit.JournalOperationService;
-import com.leconsulat.common.exception.BadRequestException;
+import com.leconsulat.common.exception.BusinessRuleException;
 import com.leconsulat.parametres.dto.ParametresDto;
-import com.leconsulat.parametres.entity.Parametres;
-import com.leconsulat.parametres.repository.ParametresRepository;
+import com.leconsulat.parametres.dto.ParametresPublicsDto;
+import com.leconsulat.parametres.dto.UpdateParametresRequest;
+import com.leconsulat.parametres.entity.FormatTicket;
+import com.leconsulat.parametres.entity.ParametresGeneraux;
+import com.leconsulat.parametres.repository.ParametresGeneralRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.UUID;
+import java.util.Comparator;
 
+/** §6.10.1 — ligne singleton créée paresseusement au premier accès (pas de seeder séparé,
+ * les valeurs par défaut de {@link ParametresGeneraux} suffisent). RG-105 : la modification est
+ * réservée au Super Administrateur, la lecture complète aussi (seul {@code /publics} est ouvert). */
 @Service
 @Transactional
 public class ParametresService {
 
-    private static final java.util.Set<String> TYPES_AUTORISES = java.util.Set.of(
-            "image/png", "image/jpeg", "image/webp", "image/svg+xml");
+    private final ParametresGeneralRepository repository;
+    private final String uploadsDir;
 
-    private final ParametresRepository repository;
-    private final JournalOperationService journal;
-
-    @Value("${app.uploads.dir}")
-    private String uploadsDir;
-
-    public ParametresService(ParametresRepository repository, JournalOperationService journal) {
+    public ParametresService(ParametresGeneralRepository repository, @Value("${app.uploads.dir}") String uploadsDir) {
         this.repository = repository;
-        this.journal = journal;
+        this.uploadsDir = uploadsDir;
     }
 
+    @PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
     public ParametresDto get() {
-        return ParametresDto.from(getOrCreateSingleton());
+        return ParametresDto.from(charger());
     }
 
-    @Transactional
-    public ParametresDto update(ParametresDto dto) {
-        Parametres p = getOrCreateSingleton();
-        p.setNomEtablissement(dto.nomEtablissement());
-        p.setLogoUrl(dto.logoUrl());
-        p.setDevise(dto.devise());
-        p.setTauxTva(dto.tauxTva());
-        p.setSeuilAlerteGlobal(dto.seuilAlerteGlobal());
-        p.setModeSombreParDefaut(dto.modeSombreParDefaut());
-        Parametres saved = repository.save(p);
-        journal.enregistrer("PARAMETRES", "MODIFICATION", "Mise à jour des paramètres généraux");
-        return ParametresDto.from(saved);
+    public ParametresPublicsDto getPublics() {
+        return ParametresPublicsDto.from(charger());
     }
 
-    @Transactional
-    public Parametres getOrCreateSingleton() {
-        return repository.findById(Parametres.SINGLETON_ID).orElseGet(() -> repository.save(new Parametres()));
+    /** Accès interne, sans restriction de profil — utilisé par les autres services (génération
+     * de ticket/avoir, seuil de stock par défaut, plafond de remise) qui doivent lire les
+     * paramètres quel que soit le profil de l'utilisateur en cours, contrairement à {@link #get()}
+     * qui sert l'écran de gestion réservé au Super Administrateur (RG-105). */
+    public ParametresGeneraux getEntity() {
+        return charger();
     }
 
-    /** Reçoit le fichier logo envoyé depuis l'écran Paramètres généraux, le stocke sur disque et
-     * met à jour {@code logoUrl} en conséquence (l'ancien fichier, s'il en existait un, est supprimé). */
+    @PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
     @Transactional
-    public ParametresDto uploadLogo(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BadRequestException("Aucun fichier reçu");
+    public ParametresDto update(UpdateParametresRequest req) {
+        ParametresGeneraux p = charger();
+        p.setNomMagasin(req.nomMagasin());
+        p.setAdresse(req.adresse());
+        p.setTelephone(req.telephone());
+        p.setEmail(req.email());
+        p.setMessageFin(req.messageFin());
+        if (req.devise() != null && !req.devise().isBlank()) {
+            p.setDevise(req.devise());
         }
-        String contentType = file.getContentType();
-        if (contentType == null || !TYPES_AUTORISES.contains(contentType.toLowerCase())) {
-            throw new BadRequestException("Format d'image non supporté (PNG, JPEG, WebP ou SVG uniquement)");
-        }
+        p.setFormatTicket(parseFormat(req.formatTicket()));
+        p.setNombreCopies(Math.max(1, req.nombreCopies()));
+        p.setSeuilAlerteDefaut(req.seuilAlerteDefaut());
+        p.setPlafondRemisePourcentage(req.plafondRemisePourcentage());
+        p.setPlafondRemiseMontant(req.plafondRemiseMontant());
+        return ParametresDto.from(repository.save(p));
+    }
 
-        Parametres p = getOrCreateSingleton();
+    @PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
+    @Transactional
+    public ParametresDto uploadLogo(MultipartFile fichier) {
+        if (fichier == null || fichier.isEmpty()) {
+            throw new BusinessRuleException("Aucun fichier fourni");
+        }
+        String extension = extensionDe(fichier.getOriginalFilename());
         try {
-            Path dir = Path.of(uploadsDir, "logos");
-            Files.createDirectories(dir);
-
-            String extension = "";
-            String original = file.getOriginalFilename();
-            if (original != null && original.contains(".")) {
-                extension = original.substring(original.lastIndexOf('.'));
+            Path dossier = Path.of(uploadsDir, "logo");
+            Files.createDirectories(dossier);
+            // Un seul logo à la fois : on retire l'ancien avant d'écrire le nouveau (évite
+            // l'accumulation de fichiers orphelins d'un précédent format d'image).
+            try (var flux = Files.list(dossier)) {
+                flux.sorted(Comparator.naturalOrder()).forEach(f -> {
+                    try {
+                        Files.deleteIfExists(f);
+                    } catch (IOException ignored) {
+                        // best-effort — un fichier verrouillé ne doit pas bloquer le nouvel upload.
+                    }
+                });
             }
-            String filename = "logo-" + UUID.randomUUID() + extension;
-            Path target = dir.resolve(filename);
-            file.transferTo(target);
-
-            supprimerAncienLogo(p.getLogoUrl(), dir);
-            p.setLogoUrl("/uploads/logos/" + filename);
+            Path cible = dossier.resolve("logo" + extension);
+            fichier.transferTo(cible);
         } catch (IOException e) {
-            throw new BadRequestException("Impossible d'enregistrer le logo : " + e.getMessage());
+            throw new UncheckedIOException("Erreur lors de l'enregistrement du logo", e);
         }
-
-        Parametres saved = repository.save(p);
-        journal.enregistrer("PARAMETRES", "MODIFICATION", "Mise à jour du logo de l'établissement");
-        return ParametresDto.from(saved);
+        ParametresGeneraux p = charger();
+        p.setLogoUrl("/uploads/logo/logo" + extension);
+        return ParametresDto.from(repository.save(p));
     }
 
-    private void supprimerAncienLogo(String ancienLogoUrl, Path logosDir) {
-        if (ancienLogoUrl == null || !ancienLogoUrl.startsWith("/uploads/logos/")) {
-            return; // rien à nettoyer, ou l'ancienne valeur était une URL externe
-        }
+    private ParametresGeneraux charger() {
+        return repository.findById(1L).orElseGet(() -> repository.save(new ParametresGeneraux()));
+    }
+
+    private FormatTicket parseFormat(String format) {
         try {
-            String ancienFichier = ancienLogoUrl.substring("/uploads/logos/".length());
-            Files.deleteIfExists(logosDir.resolve(ancienFichier));
-        } catch (IOException ignored) {
-            // le nettoyage de l'ancien fichier n'est pas critique
+            return FormatTicket.valueOf(format.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new BusinessRuleException("Format de ticket inconnu : " + format);
         }
+    }
+
+    private String extensionDe(String nomFichier) {
+        if (nomFichier == null) {
+            return "";
+        }
+        int i = nomFichier.lastIndexOf('.');
+        return i >= 0 ? nomFichier.substring(i).toLowerCase() : "";
     }
 }

@@ -8,6 +8,8 @@ public record UpdateUtilisateurRequest(
         @NotBlank(message = "Le nom complet est obligatoire") String nom,
         @Email(message = "Email invalide") String email,
         String telephone,
-        @NotNull(message = "Le rôle est obligatoire") String role
+        @NotNull(message = "Le profil est obligatoire") String profil,
+        /** Obligatoire pour tout profil autre que Super Administrateur — validé dans UtilisateurService. */
+        Long etablissementId
 ) {
 }

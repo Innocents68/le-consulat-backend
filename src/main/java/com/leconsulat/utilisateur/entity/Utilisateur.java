@@ -1,5 +1,6 @@
 package com.leconsulat.utilisateur.entity;
 
+import com.leconsulat.etablissement.entity.Etablissement;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -28,8 +29,16 @@ public class Utilisateur {
     private String telephone;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Role role;
+    @Column(nullable = false, length = 30)
+    private Profil profil;
+
+    /** Nullable : seul le Super Administrateur n'est rattaché à aucun établissement (vision
+     * globale, RG-005). Un Gérant/Caissier en a obligatoirement un et un seul (RG-098).
+     * EAGER : lu jusque dans des points d'entrée non transactionnels (login), et c'est une
+     * référence à une table minuscule (3-4 lignes) — pas de risque de N+1 significatif. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "etablissement_id")
+    private Etablissement etablissement;
 
     @Column(nullable = false)
     private boolean actif = true;
@@ -88,12 +97,20 @@ public class Utilisateur {
         this.telephone = telephone;
     }
 
-    public Role getRole() {
-        return role;
+    public Profil getProfil() {
+        return profil;
     }
 
-    public void setRole(Role role) {
-        this.role = role;
+    public void setProfil(Profil profil) {
+        this.profil = profil;
+    }
+
+    public Etablissement getEtablissement() {
+        return etablissement;
+    }
+
+    public void setEtablissement(Etablissement etablissement) {
+        this.etablissement = etablissement;
     }
 
     public boolean isActif() {

@@ -10,12 +10,17 @@ public record UtilisateurDto(
         String nom,
         String email,
         String telephone,
-        String role,
+        String profil,
+        Long etablissementId,
+        String etablissementNom,
         boolean actif,
         LocalDateTime dateCreation
 ) {
     public static UtilisateurDto from(Utilisateur u) {
         return new UtilisateurDto(u.getId(), u.getUsername(), u.getNom(), u.getEmail(), u.getTelephone(),
-                u.getRole().name(), u.isActif(), u.getDateCreation());
+                u.getProfil().name(),
+                u.getEtablissement() != null ? u.getEtablissement().getId() : null,
+                u.getEtablissement() != null ? u.getEtablissement().getNom() : null,
+                u.isActif(), u.getDateCreation());
     }
 }

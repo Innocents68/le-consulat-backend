@@ -1,9 +1,12 @@
 package com.leconsulat.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.leconsulat.common.audit.JournalOperationService;
 import com.leconsulat.common.web.ApiErrorResponse;
+import com.leconsulat.security.CustomUserDetails;
 import com.leconsulat.security.CustomUserDetailsService;
 import com.leconsulat.security.JwtAuthenticationFilter;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,13 +40,16 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
     private final ObjectMapper objectMapper;
+    private final JournalOperationService journal;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                            CustomUserDetailsService userDetailsService,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           JournalOperationService journal) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
         this.objectMapper = objectMapper;
+        this.journal = journal;
     }
 
     @Bean
@@ -86,6 +92,7 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin())) // needed for H2 console
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/login").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/parametres/publics").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
@@ -102,6 +109,17 @@ public class SecurityConfig {
                             response.getWriter().write(objectMapper.writeValueAsString(body));
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            // RG-012 : toute tentative d'accès non autorisé est journalisée
+                            // (utilisateur, date, ressource visée, adresse IP).
+                            String utilisateur = "anonyme";
+                            var auth = SecurityContextHolder.getContext().getAuthentication();
+                            if (auth != null && auth.getPrincipal() instanceof CustomUserDetails cud) {
+                                utilisateur = cud.getUsername();
+                            }
+                            journal.enregistrer("SECURITE", "ACCES_REFUSE",
+                                    "Accès refusé pour " + utilisateur + " sur " + request.getRequestURI()
+                                            + " depuis " + request.getRemoteAddr());
+
                             response.setStatus(403);
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             ApiErrorResponse body = new ApiErrorResponse(Instant.now(), 403, "ACCESS_DENIED",

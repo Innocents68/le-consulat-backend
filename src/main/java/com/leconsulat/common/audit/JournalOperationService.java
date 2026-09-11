@@ -27,11 +27,16 @@ public class JournalOperationService {
     public void enregistrer(String module, String action, String details) {
         Long userId = null;
         String userNom = "SYSTEME";
+        JournalOperation entry;
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails cud) {
             userId = cud.getId();
             userNom = cud.getUtilisateur().getNom();
+            entry = new JournalOperation(userId, userNom, module, action, details);
+            entry.setEtablissement(cud.getUtilisateur().getEtablissement());
+        } else {
+            entry = new JournalOperation(userId, userNom, module, action, details);
         }
-        repository.save(new JournalOperation(userId, userNom, module, action, details));
+        repository.save(entry);
     }
 }

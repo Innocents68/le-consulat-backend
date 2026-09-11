@@ -1,6 +1,8 @@
 package com.leconsulat.common.web;
 
+import com.leconsulat.common.audit.JournalOperationService;
 import com.leconsulat.common.exception.ApiException;
+import com.leconsulat.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -8,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -29,6 +32,12 @@ import java.util.NoSuchElementException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    private final JournalOperationService journal;
+
+    public GlobalExceptionHandler(JournalOperationService journal) {
+        this.journal = journal;
+    }
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiErrorResponse> handleApiException(ApiException ex, HttpServletRequest request) {
@@ -61,6 +70,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        // RG-012 : toute tentative d'accès non autorisé est journalisée (utilisateur, date,
+        // ressource visée, adresse IP) — c'est ici, et pas dans SecurityConfig, que les refus
+        // issus de @PreAuthorize atterrissent réellement (ce @ControllerAdvice intercepte
+        // l'exception avant qu'elle n'atteigne le accessDeniedHandler du filtre de sécurité).
+        String utilisateur = "anonyme";
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails cud) {
+            utilisateur = cud.getUsername();
+        }
+        journal.enregistrer("SECURITE", "ACCES_REFUSE",
+                "Accès refusé pour " + utilisateur + " sur " + request.getRequestURI()
+                        + " depuis " + request.getRemoteAddr());
         return build(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Accès refusé : droits insuffisants pour cette action", request, null);
     }
 

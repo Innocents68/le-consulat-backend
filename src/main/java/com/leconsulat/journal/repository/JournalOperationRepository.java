@@ -14,11 +14,13 @@ public interface JournalOperationRepository extends JpaRepository<JournalOperati
     @Query("select j from JournalOperation j where " +
             "(cast(:utilisateurId as long) is null or j.utilisateurId = :utilisateurId) and " +
             "(:module is null or lower(j.module) = lower(cast(:module as string))) and " +
+            "(cast(:etablissementId as long) is null or j.etablissement.id = :etablissementId) and " +
             "(cast(:dateDebut as timestamp) is null or j.dateOperation >= :dateDebut) and " +
             "(cast(:dateFin as timestamp) is null or j.dateOperation <= :dateFin) " +
             "order by j.dateOperation desc")
     Page<JournalOperation> search(@Param("utilisateurId") Long utilisateurId,
                                    @Param("module") String module,
+                                   @Param("etablissementId") Long etablissementId,
                                    @Param("dateDebut") LocalDateTime dateDebut,
                                    @Param("dateFin") LocalDateTime dateFin,
                                    Pageable pageable);

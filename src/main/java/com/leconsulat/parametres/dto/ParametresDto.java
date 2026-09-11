@@ -1,18 +1,26 @@
 package com.leconsulat.parametres.dto;
 
-import com.leconsulat.parametres.entity.Parametres;
-import jakarta.validation.constraints.NotBlank;
+import com.leconsulat.parametres.entity.ParametresGeneraux;
+
+import java.math.BigDecimal;
 
 public record ParametresDto(
-        @NotBlank(message = "Le nom de l'établissement est obligatoire") String nomEtablissement,
         String logoUrl,
+        String nomMagasin,
+        String adresse,
+        String telephone,
+        String email,
+        String messageFin,
         String devise,
-        double tauxTva,
-        int seuilAlerteGlobal,
-        boolean modeSombreParDefaut
+        String formatTicket,
+        int nombreCopies,
+        BigDecimal seuilAlerteDefaut,
+        BigDecimal plafondRemisePourcentage,
+        BigDecimal plafondRemiseMontant
 ) {
-    public static ParametresDto from(Parametres p) {
-        return new ParametresDto(p.getNomEtablissement(), p.getLogoUrl(), p.getDevise(), p.getTauxTva(),
-                p.getSeuilAlerteGlobal(), p.isModeSombreParDefaut());
+    public static ParametresDto from(ParametresGeneraux p) {
+        return new ParametresDto(p.getLogoUrl(), p.getNomMagasin(), p.getAdresse(), p.getTelephone(), p.getEmail(),
+                p.getMessageFin(), p.getDevise(), p.getFormatTicket().name(), p.getNombreCopies(),
+                p.getSeuilAlerteDefaut(), p.getPlafondRemisePourcentage(), p.getPlafondRemiseMontant());
     }
 }

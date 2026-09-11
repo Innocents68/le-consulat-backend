@@ -22,9 +22,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
+    private final TokenInvalidationRegistry tokenInvalidationRegistry;
 
     private final List<RequestMatcher> publicPaths = List.of(
             new AntPathRequestMatcher("/api/v1/auth/login", "POST"),
+            new AntPathRequestMatcher("/api/v1/parametres/publics", "GET"),
             new AntPathRequestMatcher("/ws/**"),
             new AntPathRequestMatcher("/swagger-ui/**"),
             new AntPathRequestMatcher("/swagger-ui.html"),
@@ -34,9 +36,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             new AntPathRequestMatcher("/uploads/**")
     );
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService userDetailsService,
+                                    TokenInvalidationRegistry tokenInvalidationRegistry) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
+        this.tokenInvalidationRegistry = tokenInvalidationRegistry;
     }
 
     @Override
@@ -59,7 +63,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = jwtUtil.extractUsername(token);
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                if (jwtUtil.isTokenValid(token, username) && userDetails.isEnabled()) {
+                boolean emisApresInvalidation = tokenInvalidationRegistry.estEncoreValide(jwtUtil.extractIssuedAt(token).toInstant());
+                if (jwtUtil.isTokenValid(token, username) && userDetails.isEnabled() && emisApresInvalidation) {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

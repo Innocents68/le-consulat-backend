@@ -1,5 +1,6 @@
 package com.leconsulat.journal.entity;
 
+import com.leconsulat.etablissement.entity.Etablissement;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -30,6 +31,14 @@ public class JournalOperation {
 
     @Column(length = 2000)
     private String details;
+
+    /** Nullable : une connexion ou une action globale du Super Administrateur n'a pas
+     * forcément d'établissement (RG-017 s'applique aux données métier, pas à toute ligne
+     * d'audit). Déduit automatiquement de l'auteur par {@code JournalOperationService}.
+     * EAGER pour la même raison que {@code Utilisateur.etablissement}. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "etablissement_id")
+    private Etablissement etablissement;
 
     @Column(nullable = false)
     private LocalDateTime dateOperation = LocalDateTime.now();
@@ -72,5 +81,13 @@ public class JournalOperation {
 
     public LocalDateTime getDateOperation() {
         return dateOperation;
+    }
+
+    public Etablissement getEtablissement() {
+        return etablissement;
+    }
+
+    public void setEtablissement(Etablissement etablissement) {
+        this.etablissement = etablissement;
     }
 }

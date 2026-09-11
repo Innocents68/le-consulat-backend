@@ -25,6 +25,8 @@ app:
     dir: ${UPLOADS_DIR:./uploads}
   backups:
     dir: ${BACKUPS_DIR:./backups}
+  postgres:
+    bin-dir: ${POSTGRES_BIN_DIR:}
 
 springdoc:
   swagger-ui:

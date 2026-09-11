@@ -12,8 +12,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/** Réservé au Super Administrateur (cf. matrice §3.3 du CDC : aucun accès, même en lecture,
+ * pour le Gérant/Caissier). */
 @RestController
 @RequestMapping("/api/v1/utilisateurs")
+@PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
 public class UtilisateurController {
 
     private final UtilisateurService service;
@@ -23,7 +26,6 @@ public class UtilisateurController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT')")
     public PageResponse<UtilisateurDto> list(@RequestParam(required = false) String search,
                                               @RequestParam(required = false) Integer page,
                                               @RequestParam(required = false) Integer size,
@@ -34,32 +36,27 @@ public class UtilisateurController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT')")
     public UtilisateurDto get(@PathVariable Long id) {
         return service.get(id);
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT')")
     @ResponseStatus(HttpStatus.CREATED)
     public UtilisateurDto create(@Valid @RequestBody CreateUtilisateurRequest req) {
         return service.create(req);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public UtilisateurDto update(@PathVariable Long id, @Valid @RequestBody UpdateUtilisateurRequest req) {
         return service.update(id, req);
     }
 
     @PatchMapping("/{id}/statut")
-    @PreAuthorize("hasRole('ADMIN')")
     public UtilisateurDto toggleStatut(@PathVariable Long id) {
         return service.toggleStatut(id);
     }
 
     @PutMapping("/{id}/mot-de-passe")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> resetPassword(@PathVariable Long id, @Valid @RequestBody ChangePasswordRequest req) {
         service.resetPassword(id, req);
         return ResponseEntity.noContent().build();

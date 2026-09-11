@@ -19,6 +19,11 @@ public final class PdfGenerator {
     }
 
     public static byte[] simpleDocument(String title, List<String[]> lines, String[] tableHeaders, List<String[]> tableRows) {
+        return simpleDocument("LE CONSULAT", title, lines, tableHeaders, tableRows);
+    }
+
+    /** §6.10.1 (RG-103) : le nom de la structure vient des Paramètres, jamais codé en dur. */
+    public static byte[] simpleDocument(String nomMagasin, String title, List<String[]> lines, String[] tableHeaders, List<String[]> tableRows) {
         Document document = new Document(PageSize.A4, 36, 36, 54, 36);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
@@ -30,7 +35,7 @@ public final class PdfGenerator {
             Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.WHITE);
             Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 9, Color.BLACK);
 
-            Paragraph header = new Paragraph("LE CONSULAT", titleFont);
+            Paragraph header = new Paragraph(nomMagasin != null ? nomMagasin.toUpperCase() : "LE CONSULAT", titleFont);
             header.setAlignment(Element.ALIGN_CENTER);
             document.add(header);
 

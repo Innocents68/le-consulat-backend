@@ -15,5 +15,5 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
 
     Page<Utilisateur> findByNomContainingIgnoreCaseOrUsernameContainingIgnoreCase(String nom, String username, Pageable pageable);
 
-    long countByRole(com.leconsulat.utilisateur.entity.Role role);
+    long countByActifTrue();
 }

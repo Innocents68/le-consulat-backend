@@ -44,10 +44,13 @@ public class AuthController {
         } catch (Exception ex) {
             throw new UnauthorizedException("Identifiant ou mot de passe incorrect");
         }
+        // Sans ça, le SecurityContext reste vide pour le reste de cette requête : le journal
+        // attribuerait la connexion à "SYSTEME" au lieu de l'utilisateur qui vient de s'authentifier.
+        SecurityContextHolder.getContext().setAuthentication(authentication);
         CustomUserDetails principal = (CustomUserDetails) authentication.getPrincipal();
         Utilisateur utilisateur = principal.getUtilisateur();
 
-        String token = jwtUtil.generateToken(utilisateur.getUsername(), utilisateur.getId(), utilisateur.getRole().name());
+        String token = jwtUtil.generateToken(utilisateur.getUsername(), utilisateur.getId());
         journalOperationService.enregistrer("AUTH", "CONNEXION", "Connexion de " + utilisateur.getUsername());
 
         LoginResponse response = new LoginResponse(token, "Bearer", jwtUtil.getExpirationMs() / 1000, UserDto.from(utilisateur));

@@ -9,9 +9,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Adapts our {@link Utilisateur} JPA entity to Spring Security's {@link UserDetails}
- * contract. The role is exposed as a "ROLE_xxx" authority so that {@code hasRole('ADMIN')}
- * expressions in {@code @PreAuthorize} work directly against the {@link com.leconsulat.utilisateur.entity.Role} enum names.
+ * Adapts our {@link Utilisateur} JPA entity to Spring Security's {@link UserDetails} contract.
  */
 public class CustomUserDetails implements UserDetails {
 
@@ -31,7 +29,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + utilisateur.getRole().name()));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + utilisateur.getProfil().name()));
     }
 
     @Override

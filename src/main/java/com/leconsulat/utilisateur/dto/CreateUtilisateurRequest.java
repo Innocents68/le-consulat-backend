@@ -10,7 +10,10 @@ public record CreateUtilisateurRequest(
         @NotBlank(message = "Le nom complet est obligatoire") String nom,
         @Email(message = "Email invalide") String email,
         String telephone,
-        @NotNull(message = "Le rôle est obligatoire") String role,
+        @NotNull(message = "Le profil est obligatoire") String profil,
+        /** Obligatoire pour tout profil autre que Super Administrateur — validé dans
+         * UtilisateurService, pas ici, car la règle dépend de la valeur de {@code profil}. */
+        Long etablissementId,
         @NotBlank(message = "Le mot de passe est obligatoire") @Size(min = 6, message = "Le mot de passe doit contenir au moins 6 caractères") String motDePasse
 ) {
 }
