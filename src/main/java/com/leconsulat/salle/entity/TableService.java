@@ -3,6 +3,8 @@ package com.leconsulat.salle.entity;
 import com.leconsulat.etablissement.entity.Etablissement;
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 /** Table de salle (cahier des charges §6.2.1) — nommée `table_service` dans le modèle de données
  * du CDC (§8.1) pour éviter le mot réservé SQL "table". */
 @Entity
@@ -32,6 +34,10 @@ public class TableService {
 
     @Column(nullable = false)
     private boolean actif = true;
+
+    // Rempli quand la table passe OCCUPEE ou RESERVEE, remis à null quand elle repasse LIBRE —
+    // sert uniquement à afficher un chronomètre "depuis quand" sur le plan de salle (EF-Table.png).
+    private LocalDateTime dateDebutOccupation;
 
     public TableService() {
     }
@@ -90,5 +96,13 @@ public class TableService {
 
     public void setActif(boolean actif) {
         this.actif = actif;
+    }
+
+    public LocalDateTime getDateDebutOccupation() {
+        return dateDebutOccupation;
+    }
+
+    public void setDateDebutOccupation(LocalDateTime dateDebutOccupation) {
+        this.dateDebutOccupation = dateDebutOccupation;
     }
 }

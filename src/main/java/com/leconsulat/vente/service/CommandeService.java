@@ -143,11 +143,12 @@ public class CommandeService {
             if (!table.getEtablissement().getId().equals(cible.getId())) {
                 throw new BusinessRuleException("Cette table n'appartient pas à cet établissement");
             }
-            if (table.getStatut() != StatutTable.LIBRE) {
+            if (table.getStatut() != StatutTable.LIBRE && table.getStatut() != StatutTable.RESERVEE) {
                 throw new BusinessRuleException("Cette table n'est pas libre");
             }
             commande.setTable(table);
             table.setStatut(StatutTable.OCCUPEE);
+            table.setDateDebutOccupation(LocalDateTime.now());
             tableRepository.save(table);
         }
 
@@ -368,6 +369,7 @@ public class CommandeService {
         boolean aucuneAutreActive = autresActives.stream().allMatch(c -> c.getId().equals(commande.getId()));
         if (aucuneAutreActive) {
             table.setStatut(StatutTable.LIBRE);
+            table.setDateDebutOccupation(null);
             tableRepository.save(table);
         }
     }

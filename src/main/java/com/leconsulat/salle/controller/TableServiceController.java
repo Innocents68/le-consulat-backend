@@ -46,4 +46,14 @@ public class TableServiceController {
     public void toggleActif(@PathVariable Long id) {
         service.toggleActif(id);
     }
+
+    @PostMapping("/{id}/reserver")
+    public TableServiceDto reserver(@PathVariable Long id) {
+        return service.reserver(id);
+    }
+
+    @PostMapping("/{id}/annuler-reservation")
+    public TableServiceDto annulerReservation(@PathVariable Long id) {
+        return service.annulerReservation(id);
+    }
 }

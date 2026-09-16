@@ -15,6 +15,7 @@ import com.leconsulat.security.PerimetreGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -49,12 +50,17 @@ public class TableServiceService {
         if (repository.existsByEtablissementAndNumeroIgnoreCase(cible, req.numero())) {
             throw new BadRequestException("Cette table existe déjà pour cet établissement");
         }
+        StatutTable statutInitial = parseStatutInitial(req.statut());
+
         TableService t = new TableService();
         t.setEtablissement(cible);
         t.setNumero(req.numero());
         t.setCapacite(req.capacite());
         t.setZone(req.zone());
-        t.setStatut(StatutTable.LIBRE);
+        t.setStatut(statutInitial);
+        if (statutInitial != StatutTable.LIBRE) {
+            t.setDateDebutOccupation(LocalDateTime.now());
+        }
         t.setActif(true);
         return TableServiceDto.from(repository.save(t));
     }
@@ -85,6 +91,46 @@ public class TableServiceService {
         }
         t.setActif(!t.isActif());
         repository.save(t);
+    }
+
+    /** Plan de salle (Table.png fourni par le client) : marque une table libre comme réservée,
+     * en attendant l'arrivée des clients — passage à OCCUPEE se fait ensuite normalement à
+     * l'ouverture d'une commande sur cette table (CommandeService l'autorise déjà si RESERVEE). */
+    @Transactional
+    public TableServiceDto reserver(Long id) {
+        TableService t = findEntityChecked(id);
+        if (t.getStatut() != StatutTable.LIBRE) {
+            throw new BusinessRuleException("Seule une table libre peut être réservée");
+        }
+        t.setStatut(StatutTable.RESERVEE);
+        t.setDateDebutOccupation(LocalDateTime.now());
+        return TableServiceDto.from(repository.save(t));
+    }
+
+    @Transactional
+    public TableServiceDto annulerReservation(Long id) {
+        TableService t = findEntityChecked(id);
+        if (t.getStatut() != StatutTable.RESERVEE) {
+            throw new BusinessRuleException("Cette table n'est pas réservée");
+        }
+        t.setStatut(StatutTable.LIBRE);
+        t.setDateDebutOccupation(null);
+        return TableServiceDto.from(repository.save(t));
+    }
+
+    private StatutTable parseStatutInitial(String statutDemande) {
+        if (statutDemande == null || statutDemande.isBlank()) {
+            return StatutTable.LIBRE;
+        }
+        try {
+            StatutTable statut = StatutTable.valueOf(statutDemande);
+            if (statut == StatutTable.EN_ATTENTE_PAIEMENT) {
+                throw new BadRequestException("Statut initial invalide : " + statutDemande);
+            }
+            return statut;
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Statut initial invalide : " + statutDemande);
+        }
     }
 
     private Etablissement resoudreEtablissementCible(Long etablissementIdDemande) {
