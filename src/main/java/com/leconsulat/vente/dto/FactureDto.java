@@ -24,6 +24,8 @@ public record FactureDto(
         String mode,
         BigDecimal montantRecu,
         BigDecimal monnaieRendue,
+        String avoirUtiliseNumero,
+        BigDecimal montantAvoirUtilise,
         LocalDateTime dateEmission,
         int nombreImpressions
 ) {
@@ -39,6 +41,7 @@ public record FactureDto(
                 c.getLignes().stream().map(LigneCommandeDto::from).toList(),
                 f.getMontantBrut(), f.getRemise(), f.getMontantNet(),
                 f.getMode().name(), f.getMontantRecu(), f.getMonnaieRendue(),
+                f.getAvoirUtiliseNumero(), f.getMontantAvoirUtilise(),
                 f.getDateEmission(), f.getNombreImpressions()
         );
     }

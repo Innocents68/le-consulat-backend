@@ -46,6 +46,13 @@ public class AvoirController {
         return service.parFacture(factureId);
     }
 
+    /** Recommandations et corrections.md §4 : consultation du solde d'un avoir par son numéro,
+     * avant de l'appliquer à un encaissement. */
+    @GetMapping("/numero/{numero}")
+    public AvoirDto parNumero(@PathVariable String numero, @RequestParam(required = false) Long etablissementId) {
+        return service.rechercherParNumero(numero, etablissementId);
+    }
+
     @PostMapping("/factures/{factureId}")
     @ResponseStatus(HttpStatus.CREATED)
     public AvoirDto create(@PathVariable Long factureId, @Valid @RequestBody CreateAvoirRequest req) {

@@ -145,6 +145,63 @@ public class AvoirService {
         return repository.findByFactureId(factureId).stream().map(AvoirDto::from).toList();
     }
 
+    /** Recommandations et corrections.md §4 : recherche d'un avoir par son numéro, pour que le
+     * caissier vérifie le solde disponible avant de l'appliquer à l'encaissement en cours. */
+    public AvoirDto rechercherParNumero(String numero, Long etablissementIdDemande) {
+        return AvoirDto.from(trouverPourUtilisation(numero, etablissementIdDemande));
+    }
+
+    /** Retrouve l'entité (pas le DTO) pour {@code CommandeService.encaisser()} : doit rester
+     * dans la même transaction que la facture pour que la mise à jour du solde (ci-dessous)
+     * soit annulée si l'encaissement échoue ensuite. */
+    public Avoir trouverPourUtilisation(String numero, Long etablissementIdDemande) {
+        Etablissement demande = etablissementIdDemande != null
+                ? etablissementRepository.findById(etablissementIdDemande).orElse(null)
+                : null;
+        Etablissement cible = perimetreGuard.scopeEtablissement(demande);
+        if (cible == null) {
+            throw new BusinessRuleException("Précisez un établissement");
+        }
+        Avoir avoir = repository.findByNumeroAndEtablissement(numero.trim().toUpperCase(), cible)
+                .orElseThrow(() -> new BusinessRuleException("Aucun avoir trouvé avec ce numéro pour cet établissement"));
+        if (avoir.getMontant().subtract(avoir.getMontantUtilise()).signum() <= 0) {
+            throw new BusinessRuleException("Cet avoir est déjà entièrement utilisé");
+        }
+        return avoir;
+    }
+
+    /** Déduit {@code montant} du solde de l'avoir — appelé par {@code CommandeService.encaisser()}
+     * une fois la facture enregistrée, dans la même transaction. */
+    @Transactional
+    public void enregistrerUtilisation(Avoir avoir, BigDecimal montant) {
+        avoir.setMontantUtilise(avoir.getMontantUtilise().add(montant));
+        repository.save(avoir);
+        journal.enregistrer("AVOIRS", "UTILISATION", "Avoir " + avoir.getNumero() + " : " + montant
+                + " FCFA déduits (solde restant " + avoir.getMontant().subtract(avoir.getMontantUtilise()) + " FCFA)");
+    }
+
+    /** Recommandations et corrections.md §4 : monnaie que la caisse ne pouvait pas rendre lors
+     * d'un encaissement en espèces, convertie en avoir client à la demande du caissier. Pas de
+     * lignes ni de plafond RG-061 : cet avoir ne corrige pas la facture, il matérialise une dette
+     * de l'établissement envers le client. */
+    @Transactional
+    public Avoir creerPourMonnaieInsuffisante(Facture facture, BigDecimal montant) {
+        Avoir avoir = new Avoir();
+        avoir.setEtablissement(facture.getEtablissement());
+        avoir.setFacture(facture);
+        avoir.setMotif(MotifAvoir.MONNAIE_INSUFFISANTE);
+        avoir.setMotifDetail("Monnaie non disponible en caisse lors de l'encaissement de la facture " + facture.getNumero());
+        avoir.setRemiseEnStock(false);
+        avoir.setModeRemboursement(ModeRemboursement.AVOIR_A_VALOIR);
+        avoir.setMontant(montant);
+        avoir.setAuteur(currentUtilisateur());
+        avoir.setNumero(numerotationService.genererNumero(facture.getEtablissement(), "AVO"));
+        Avoir saved = repository.save(avoir);
+        journal.enregistrer("AVOIRS", "CREATION", "Avoir " + saved.getNumero() + " créé pour monnaie insuffisante sur la facture "
+                + facture.getNumero() + " (" + montant + " FCFA)");
+        return saved;
+    }
+
     private MotifAvoir parseMotif(String motif) {
         try {
             return MotifAvoir.valueOf(motif.trim().toUpperCase());

@@ -1,5 +1,7 @@
 package com.leconsulat.vente.service;
 
+import com.leconsulat.avoir.entity.Avoir;
+import com.leconsulat.avoir.service.AvoirService;
 import com.leconsulat.catalogue.entity.Produit;
 import com.leconsulat.catalogue.repository.ProduitRepository;
 import com.leconsulat.common.audit.JournalOperationService;
@@ -56,13 +58,15 @@ public class CommandeService {
     private final RemiseService remiseService;
     private final MouvementStockService mouvementStockService;
     private final ParametresService parametresService;
+    private final AvoirService avoirService;
 
     public CommandeService(CommandeRepository repository, TableServiceRepository tableRepository,
                             ProduitRepository produitRepository, EtablissementRepository etablissementRepository,
                             PaiementRepository paiementRepository, FactureRepository factureRepository,
                             NumerotationService numerotationService, JournalOperationService journal,
                             PerimetreGuard perimetreGuard, RemiseService remiseService,
-                            MouvementStockService mouvementStockService, ParametresService parametresService) {
+                            MouvementStockService mouvementStockService, ParametresService parametresService,
+                            AvoirService avoirService) {
         this.repository = repository;
         this.tableRepository = tableRepository;
         this.produitRepository = produitRepository;
@@ -75,6 +79,7 @@ public class CommandeService {
         this.remiseService = remiseService;
         this.mouvementStockService = mouvementStockService;
         this.parametresService = parametresService;
+        this.avoirService = avoirService;
     }
 
     public Page<CommandeDto> search(Long etablissementIdDemande, String statut, Long tableId,
@@ -270,18 +275,44 @@ public class CommandeService {
 
         ModePaiement mode = parseMode(req.modePaiement());
         BigDecimal montantNet = commande.getMontantNet();
+
+        // Recommandations et corrections.md §4 : un avoir existant déduit son solde (plafonné au
+        // montant net) du montant réellement dû avant tout calcul de monnaie.
+        Avoir avoirUtilise = null;
+        BigDecimal montantAvoirApplique = BigDecimal.ZERO;
+        if (req.avoirNumero() != null && !req.avoirNumero().isBlank()) {
+            avoirUtilise = avoirService.trouverPourUtilisation(req.avoirNumero(), commande.getEtablissement().getId());
+            BigDecimal soldeAvoir = avoirUtilise.getMontant().subtract(avoirUtilise.getMontantUtilise());
+            montantAvoirApplique = soldeAvoir.min(montantNet);
+        }
+        BigDecimal montantAPayer = montantNet.subtract(montantAvoirApplique);
+
         BigDecimal monnaieRendue = BigDecimal.ZERO;
-        if (mode == ModePaiement.ESPECES) {
-            if (req.montantRecu() == null || req.montantRecu().compareTo(montantNet) < 0) {
-                throw new BusinessRuleException("Le montant reçu est inférieur au total net à payer");
+        if (mode == ModePaiement.ESPECES && montantAPayer.signum() > 0) {
+            if (req.montantRecu() == null || req.montantRecu().compareTo(montantAPayer) < 0) {
+                throw new BusinessRuleException("Le montant reçu est inférieur au total restant à payer");
             }
-            monnaieRendue = req.montantRecu().subtract(montantNet);
+            monnaieRendue = req.montantRecu().subtract(montantAPayer);
+        }
+
+        // §4 : la monnaie que la caisse ne peut pas rendre devient un avoir, à hauteur de ce que
+        // le caissier déclare — jamais plus que la monnaie due, ni hors espèces.
+        BigDecimal montantConvertiEnAvoir = BigDecimal.ZERO;
+        if (req.montantConvertiEnAvoir() != null && req.montantConvertiEnAvoir().signum() > 0) {
+            if (mode != ModePaiement.ESPECES) {
+                throw new BusinessRuleException("La conversion en avoir n'est possible qu'en espèces");
+            }
+            if (req.montantConvertiEnAvoir().compareTo(monnaieRendue) > 0) {
+                throw new BusinessRuleException("Le montant converti en avoir dépasse la monnaie à rendre");
+            }
+            montantConvertiEnAvoir = req.montantConvertiEnAvoir();
+            monnaieRendue = monnaieRendue.subtract(montantConvertiEnAvoir);
         }
 
         Paiement paiement = new Paiement();
         paiement.setCommande(commande);
         paiement.setMode(mode);
-        paiement.setMontant(montantNet);
+        paiement.setMontant(montantAPayer);
         paiement.setMontantRecu(req.montantRecu());
         paiement.setMonnaieRendue(monnaieRendue);
         paiementRepository.save(paiement);
@@ -318,7 +349,20 @@ public class CommandeService {
         facture.setMode(mode);
         facture.setMontantRecu(req.montantRecu());
         facture.setMonnaieRendue(monnaieRendue);
+        if (avoirUtilise != null) {
+            facture.setAvoirUtiliseNumero(avoirUtilise.getNumero());
+            facture.setMontantAvoirUtilise(montantAvoirApplique);
+        }
         Facture savedFacture = factureRepository.save(facture);
+
+        // Après la sauvegarde de la facture (même transaction) : consommer l'avoir utilisé et/ou
+        // créer celui généré par la monnaie non rendue (§4).
+        if (avoirUtilise != null) {
+            avoirService.enregistrerUtilisation(avoirUtilise, montantAvoirApplique);
+        }
+        if (montantConvertiEnAvoir.signum() > 0) {
+            avoirService.creerPourMonnaieInsuffisante(savedFacture, montantConvertiEnAvoir);
+        }
 
         journal.enregistrer("VENTES", "ENCAISSEMENT",
                 "Commande " + commande.getNumero() + " encaissée (" + mode + ", " + montantNet + " FCFA) -> facture " + savedFacture.getNumero());

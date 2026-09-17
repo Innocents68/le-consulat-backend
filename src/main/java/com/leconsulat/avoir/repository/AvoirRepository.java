@@ -11,12 +11,17 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface AvoirRepository extends JpaRepository<Avoir, Long> {
 
     Page<Avoir> findByEtablissementOrderByDateCreationDesc(Etablissement etablissement, Pageable pageable);
 
     List<Avoir> findByFactureId(Long factureId);
+
+    /** Recommandations et corrections.md §4 : un avoir se présente au numéro (imprimé sur son
+     * PDF), scopé à son établissement — pas de notion de client en base. */
+    Optional<Avoir> findByNumeroAndEtablissement(String numero, Etablissement etablissement);
 
     /** RG-061 : cumul déjà émis sur une facture, pour vérifier qu'un nouvel avoir ne dépasse pas
      * le montant net restant. */

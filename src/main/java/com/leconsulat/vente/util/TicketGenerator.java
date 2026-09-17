@@ -81,6 +81,9 @@ public final class TicketGenerator {
                     document.add(ligneMontant("Remise", "-" + formaterFcfa(facture.getRemise()), normal));
                 }
                 document.add(ligneMontant("Total net", formaterFcfa(facture.getMontantNet()), gras));
+                if (facture.getMontantAvoirUtilise() != null && facture.getMontantAvoirUtilise().signum() > 0) {
+                    document.add(ligneMontant("Avoir " + facture.getAvoirUtiliseNumero(), "-" + formaterFcfa(facture.getMontantAvoirUtilise()), normal));
+                }
                 if (facture.getMontantRecu() != null) {
                     document.add(ligneMontant(facture.getMode().name(), formaterFcfa(facture.getMontantRecu()), normal));
                     document.add(ligneMontant("Monnaie rendue", formaterFcfa(facture.getMonnaieRendue()), normal));

@@ -54,6 +54,12 @@ public class Avoir {
     @Column(nullable = false, length = 20)
     private ModeRemboursement modeRemboursement;
 
+    /** Recommandations et corrections.md §4 : part de {@code montant} déjà déduite d'une facture
+     * ultérieure. Un avoir reste immuable (RG-065) sur son contenu d'origine — seul ce compteur
+     * évolue, via {@code AvoirService.enregistrerUtilisation()}. Solde restant = montant - ce champ. */
+    @Column(nullable = false, precision = 14, scale = 0)
+    private BigDecimal montantUtilise = BigDecimal.ZERO;
+
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "auteur_id", nullable = false)
     private Utilisateur auteur;
@@ -134,6 +140,14 @@ public class Avoir {
 
     public void setModeRemboursement(ModeRemboursement modeRemboursement) {
         this.modeRemboursement = modeRemboursement;
+    }
+
+    public BigDecimal getMontantUtilise() {
+        return montantUtilise;
+    }
+
+    public void setMontantUtilise(BigDecimal montantUtilise) {
+        this.montantUtilise = montantUtilise;
     }
 
     public Utilisateur getAuteur() {

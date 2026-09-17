@@ -46,6 +46,15 @@ public class Facture {
     @Column(precision = 14, scale = 0)
     private BigDecimal monnaieRendue;
 
+    /** Recommandations et corrections.md §4 : traçabilité d'un avoir déduit à l'encaissement.
+     * Numéro dupliqué (pas de relation JPA vers {@code Avoir}, module avoir) pour rester lisible
+     * sur le ticket sans dépendre du module avoir dans l'entité de facturation. */
+    @Column(length = 40)
+    private String avoirUtiliseNumero;
+
+    @Column(precision = 14, scale = 0)
+    private BigDecimal montantAvoirUtilise;
+
     @Column(nullable = false)
     private LocalDateTime dateEmission = LocalDateTime.now();
 
@@ -130,6 +139,22 @@ public class Facture {
 
     public void setMonnaieRendue(BigDecimal monnaieRendue) {
         this.monnaieRendue = monnaieRendue;
+    }
+
+    public String getAvoirUtiliseNumero() {
+        return avoirUtiliseNumero;
+    }
+
+    public void setAvoirUtiliseNumero(String avoirUtiliseNumero) {
+        this.avoirUtiliseNumero = avoirUtiliseNumero;
+    }
+
+    public BigDecimal getMontantAvoirUtilise() {
+        return montantAvoirUtilise;
+    }
+
+    public void setMontantAvoirUtilise(BigDecimal montantAvoirUtilise) {
+        this.montantAvoirUtilise = montantAvoirUtilise;
     }
 
     public LocalDateTime getDateEmission() {

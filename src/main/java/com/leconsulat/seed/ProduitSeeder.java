@@ -164,7 +164,7 @@ public class ProduitSeeder implements ApplicationRunner {
             p.setPrixVente(BigDecimal.valueOf(seed.prix()));
             p.setActif(true);
             p.setDisponible(true);
-            p.setSuiviStock(false);
+            p.setSuiviStock(true);
             produitRepository.save(p);
             crees++;
         }
