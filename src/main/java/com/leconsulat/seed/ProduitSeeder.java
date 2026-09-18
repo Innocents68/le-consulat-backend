@@ -74,14 +74,69 @@ public class ProduitSeeder implements ApplicationRunner {
             new ProduitSeed("Boissons gazeuses et jus", "Dopel énergie", 700),
             new ProduitSeed("Boissons gazeuses et jus", "Gros coca", 1000),
             new ProduitSeed("Autres boissons", "Eau lafi", 600),
-            new ProduitSeed("Autres boissons", "Dafani", 1200)
+            new ProduitSeed("Autres boissons", "Dafani", 1200),
+
+            // --- Produits_Achat_Vente_CONSULAT_classe.xlsx (2026-09-18) ---
+            new ProduitSeed("Bières", "Beaufort canette", 650),
+            new ProduitSeed("Bières", "Castel canette", 650),
+            new ProduitSeed("Boissons gazeuses et jus", "Malia", 1200),
+            new ProduitSeed("Boissons gazeuses et jus", "Rock", 700),
+            new ProduitSeed("Boissons gazeuses et jus", "Energy 3X", 800),
+            new ProduitSeed("Boissons gazeuses et jus", "Poulma", 2500),
+            new ProduitSeed("Boissons gazeuses et jus", "3X Energy petit", 600),
+            new ProduitSeed("Boissons gazeuses et jus", "Bravo", 500),
+            new ProduitSeed("Autres boissons", "Green Lee", 4000),
+            new ProduitSeed("Autres boissons", "Caly Canto", 2500),
+            new ProduitSeed("Autres boissons", "Honey", 4000),
+            new ProduitSeed("Autres boissons", "Grand terre", 2500),
+            new ProduitSeed("Autres boissons", "RLG", 2500),
+            new ProduitSeed("Autres boissons", "Maman mia", 2500),
+            new ProduitSeed("Autres boissons", "Sand Stones", 4000)
     );
 
-    // --- Cave à vin (produits_prix_unitaires.md — les 3 vins) ---
+    // --- Cave à vin (produits_prix_unitaires.md — les 3 vins d'origine, puis
+    // Produits_Achat_Vente_CONSULAT_classe.xlsx du 2026-09-18 pour le reste de la cave) ---
     private static final List<ProduitSeed> CAVE = List.of(
             new ProduitSeed("Vins", "Château 18 petit", 500),
             new ProduitSeed("Vins", "Château de France", 1000),
-            new ProduitSeed("Vins", "Don Simon", 1500)
+            new ProduitSeed("Vins", "Don Simon", 1500),
+            new ProduitSeed("Vins", "Baron irondeau", 2500),
+            new ProduitSeed("Vins", "Royal circle", 4000),
+            new ProduitSeed("Vins", "Domaine de Moulin", 2500),
+            new ProduitSeed("Vins", "Grand sud cabernet", 4000),
+            new ProduitSeed("Vins", "Grand sud Merlot", 4000),
+            new ProduitSeed("Vins", "Cuvée de baron", 3500),
+            new ProduitSeed("Vins", "Jour spécial", 2500),
+            new ProduitSeed("Vins", "Baron de senac", 2500),
+            new ProduitSeed("Vins", "Chambery rose", 2500),
+            new ProduitSeed("Vins", "Baron de Roméo", 2500),
+            new ProduitSeed("Vins", "Castel Vin", 7000),
+            new ProduitSeed("Vins", "Label 5", 7000),
+            new ProduitSeed("Vins", "Mouscador", 3500),
+            new ProduitSeed("Vins", "Roch Mazet cabernet", 3500),
+            new ProduitSeed("Vins", "Rhum mangousta", 4000),
+            new ProduitSeed("Vins", "Grants", 10000),
+            new ProduitSeed("Vins", "Johnie Red Label", 11000),
+            new ProduitSeed("Vins", "Legend", 600),
+            new ProduitSeed("Vins", "PM8", 4000),
+            new ProduitSeed("Vins", "Xana", 2250),
+            new ProduitSeed("Vins", "Valentino", 2500),
+            new ProduitSeed("Vins", "Valentino petit", 900),
+            new ProduitSeed("Vins", "Vody", 700),
+            new ProduitSeed("Vins", "Jour spécial mousseux", 3000),
+            new ProduitSeed("Vins", "Bella Vinas", 10000),
+            new ProduitSeed("Vins", "Sangria Penasol", 2500),
+            new ProduitSeed("Vins", "Jour spécial Rosée/blanc", 2500),
+            new ProduitSeed("Vins", "Flar de lamar", 3500),
+            new ProduitSeed("Vins", "Château de France 48", 400),
+            new ProduitSeed("Vins", "Amour", 2500),
+            new ProduitSeed("Vins", "Legend Whyski", 4000),
+            new ProduitSeed("Vins", "Sangria forte grand", 1000),
+            new ProduitSeed("Vins", "Sangria forte petit", 500),
+            new ProduitSeed("Vins", "Santiago", 2500),
+            new ProduitSeed("Vins", "JP Chenet", 3500),
+            new ProduitSeed("Vins", "Sang de terre", 3500),
+            new ProduitSeed("Vins", "Tequila", 8880)
     );
 
     // --- Restaurant (menu.md) — les prix doubles ("500/1000") sont scindés en deux produits ---
@@ -130,7 +185,12 @@ public class ProduitSeeder implements ApplicationRunner {
             new ProduitSeed("Soupes", "Soupe de poisson carpe", 1000),
             new ProduitSeed("Soupes", "Soupe de poisson chinchard", 750),
             new ProduitSeed("Soupes", "Soupe de mouton", 1000),
-            new ProduitSeed("Soupes", "Soupe de poulet 1/4", 1000)
+            new ProduitSeed("Soupes", "Soupe de poulet 1/4", 1000),
+
+            // --- Produits_Achat_Vente_CONSULAT_classe.xlsx (2026-09-18) ---
+            new ProduitSeed("Boissons froides", "Rauch champagne", 700),
+            new ProduitSeed("Boissons froides", "Rauch jus", 1000),
+            new ProduitSeed("Boissons froides", "Green lee", 600)
     );
 
     @Override
