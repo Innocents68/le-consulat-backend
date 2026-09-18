@@ -30,12 +30,13 @@ public class ProduitController {
     public PageResponse<ProduitDto> search(@RequestParam(required = false) Long etablissementId,
                                             @RequestParam(required = false) Long categorieId,
                                             @RequestParam(required = false) Boolean actif,
+                                            @RequestParam(required = false) Boolean suiviStock,
                                             @RequestParam(required = false) String search,
                                             @RequestParam(required = false) Integer page,
                                             @RequestParam(required = false) Integer size,
                                             @RequestParam(required = false) String sort) {
         Pageable pageable = PageableUtil.build(page, size, sort);
-        Page<ProduitDto> result = service.search(etablissementId, categorieId, actif, search, pageable);
+        Page<ProduitDto> result = service.search(etablissementId, categorieId, actif, suiviStock, search, pageable);
         return PageResponse.ofDto(result);
     }
 

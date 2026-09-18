@@ -17,10 +17,12 @@ public interface ProduitRepository extends JpaRepository<Produit, Long> {
     @Query("select p from Produit p where p.etablissement = :etablissement " +
             "and (cast(:categorieId as long) is null or p.categorie.id = :categorieId) " +
             "and (cast(:actif as boolean) is null or p.actif = :actif) " +
+            "and (cast(:suiviStock as boolean) is null or p.suiviStock = :suiviStock) " +
             "and (cast(:search as string) is null or lower(p.nom) like lower(concat('%', cast(:search as string), '%')))")
     Page<Produit> search(@Param("etablissement") Etablissement etablissement,
                           @Param("categorieId") Long categorieId,
                           @Param("actif") Boolean actif,
+                          @Param("suiviStock") Boolean suiviStock,
                           @Param("search") String search,
                           Pageable pageable);
 

@@ -50,7 +50,7 @@ public class ProduitService {
         this.parametresService = parametresService;
     }
 
-    public Page<ProduitDto> search(Long etablissementIdDemande, Long categorieId, Boolean actif, String search, Pageable pageable) {
+    public Page<ProduitDto> search(Long etablissementIdDemande, Long categorieId, Boolean actif, Boolean suiviStock, String search, Pageable pageable) {
         Etablissement demande = etablissementIdDemande != null
                 ? etablissementRepository.findById(etablissementIdDemande).orElse(null)
                 : null;
@@ -58,7 +58,7 @@ public class ProduitService {
         if (cible == null) {
             throw new BusinessRuleException("Précisez un établissement");
         }
-        return repository.search(cible, categorieId, actif, search, pageable).map(ProduitDto::from);
+        return repository.search(cible, categorieId, actif, suiviStock, search, pageable).map(ProduitDto::from);
     }
 
     public ProduitDto get(Long id) {
