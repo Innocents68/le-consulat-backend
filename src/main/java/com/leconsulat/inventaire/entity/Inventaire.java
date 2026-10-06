@@ -32,6 +32,11 @@ public class Inventaire {
     @Column(nullable = false, length = 20)
     private StatutInventaire statut = StatutInventaire.BROUILLON;
 
+    /** Cahier_des_charges_amelioration_inventaire_Le_Consulat.docx §12 — figé à la création. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ModeInventaire mode = ModeInventaire.RAPIDE;
+
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "auteur_id", nullable = false)
     private Utilisateur auteur;
@@ -92,6 +97,14 @@ public class Inventaire {
 
     public void setStatut(StatutInventaire statut) {
         this.statut = statut;
+    }
+
+    public ModeInventaire getMode() {
+        return mode;
+    }
+
+    public void setMode(ModeInventaire mode) {
+        this.mode = mode;
     }
 
     public Utilisateur getAuteur() {

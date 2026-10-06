@@ -2,6 +2,7 @@ package com.leconsulat.avoir.service;
 
 import com.leconsulat.avoir.dto.AvoirDto;
 import com.leconsulat.avoir.dto.CreateAvoirRequest;
+import com.leconsulat.avoir.dto.CreerAvoirMontantLibreRequest;
 import com.leconsulat.avoir.dto.LigneAvoirInput;
 import com.leconsulat.avoir.entity.Avoir;
 import com.leconsulat.avoir.entity.LigneAvoir;
@@ -125,6 +126,41 @@ public class AvoirService {
         Avoir saved = repository.save(avoir);
         journal.enregistrer("AVOIRS", "CREATION", "Avoir " + saved.getNumero() + " sur la facture "
                 + facture.getNumero() + " (" + montantTotal + " FCFA, motif : " + motif + ")");
+        return AvoirDto.from(saved);
+    }
+
+    /** Consu_corrige.docx §1 : "Nouvel avoir" à formulaire libre — retrouve la facture par
+     * numéro (pas par id, saisi par l'utilisateur), applique le même plafond RG-061 que
+     * {@link #create}, mais sans lignes ni réintégration de stock possible (le motif ne pointe
+     * pas vers des articles précis). */
+    @Transactional
+    public AvoirDto creerMontantLibre(CreerAvoirMontantLibreRequest req) {
+        Facture facture = factureRepository.findByNumero(req.factureNumero().trim().toUpperCase())
+                .orElseThrow(() -> new BusinessRuleException("Aucune facture trouvée avec ce numéro"));
+        if (!perimetreGuard.aAcces(facture.getEtablissement())) {
+            throw new BusinessRuleException("Aucune facture trouvée avec ce numéro");
+        }
+        MotifAvoir motif = parseMotif(req.motif());
+        ModeRemboursement mode = parseModeRemboursement(req.modeRemboursement());
+
+        BigDecimal dejaEmis = repository.sommeAvoirsExistants(facture.getId());
+        if (dejaEmis.add(req.montant()).compareTo(facture.getMontantNet()) > 0) {
+            throw new BusinessRuleException("Le cumul des avoirs dépasserait le montant net de la facture");
+        }
+
+        Avoir avoir = new Avoir();
+        avoir.setEtablissement(facture.getEtablissement());
+        avoir.setFacture(facture);
+        avoir.setMotif(motif);
+        avoir.setMotifDetail(req.motifDetail());
+        avoir.setRemiseEnStock(false);
+        avoir.setModeRemboursement(mode);
+        avoir.setMontant(req.montant());
+        avoir.setAuteur(currentUtilisateur());
+        avoir.setNumero(numerotationService.genererNumero(facture.getEtablissement(), "AVO"));
+        Avoir saved = repository.save(avoir);
+        journal.enregistrer("AVOIRS", "CREATION", "Avoir " + saved.getNumero() + " (montant libre) sur la facture "
+                + facture.getNumero() + " (" + req.montant() + " FCFA, motif : " + motif + ")");
         return AvoirDto.from(saved);
     }
 

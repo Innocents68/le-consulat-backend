@@ -39,4 +39,15 @@ public interface AvoirRepository extends JpaRepository<Avoir, Long> {
                                   @Param("dateDebut") LocalDateTime dateDebut,
                                   @Param("dateFin") LocalDateTime dateFin,
                                   @Param("utilisateurId") Long utilisateurId);
+
+    /** Consu_corrige.docx §4 : une facture ayant déjà des avoirs ne peut pas être supprimée (FK
+     * avoirs.facture_id, et ça romprait la traçabilité de la correction déjà effectuée). */
+    boolean existsByFactureId(Long factureId);
+
+    /** Consu_corrige.docx §3 : un produit déjà crédité via un avoir ne peut pas être supprimé. */
+    @Query("select count(l) > 0 from LigneAvoir l where l.produit.id = :produitId")
+    boolean existsByLigneProduitId(@Param("produitId") Long produitId);
+
+    /** Consu_corrige.docx §9 : un utilisateur ayant déjà émis un avoir ne peut pas être supprimé. */
+    boolean existsByAuteurId(Long auteurId);
 }

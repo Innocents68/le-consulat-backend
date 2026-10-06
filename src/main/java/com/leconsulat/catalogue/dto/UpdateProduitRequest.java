@@ -12,11 +12,12 @@ public record UpdateProduitRequest(
         String description,
         @NotBlank(message = "L'unité est obligatoire") String unite,
         @NotNull(message = "Le prix de vente est obligatoire") @DecimalMin(value = "0.01", message = "Le prix de vente doit être positif") BigDecimal prixVente,
-        BigDecimal prixAchat,
+        @NotNull(message = "Le prix d'achat est obligatoire") @DecimalMin(value = "0.01", message = "Le prix d'achat doit être positif") BigDecimal prixAchat,
         Boolean disponible,
         Boolean suiviStock,
         BigDecimal seuilAlerte,
         String emplacement,
-        Long fournisseurId
+        Long fournisseurId,
+        String codeBarre
 ) {
 }

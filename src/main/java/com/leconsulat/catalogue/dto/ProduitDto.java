@@ -21,6 +21,7 @@ public record ProduitDto(
         String emplacement,
         Long fournisseurId,
         String fournisseurNom,
+        String codeBarre,
         Long etablissementId,
         String etablissementNom
 ) {
@@ -33,6 +34,7 @@ public record ProduitDto(
                 p.getQuantiteStock(), p.getSeuilAlerte(), p.getEmplacement(),
                 p.getFournisseur() != null ? p.getFournisseur().getId() : null,
                 p.getFournisseur() != null ? p.getFournisseur().getNom() : null,
+                p.getCodeBarre(),
                 p.getEtablissement().getId(), p.getEtablissement().getNom());
     }
 }

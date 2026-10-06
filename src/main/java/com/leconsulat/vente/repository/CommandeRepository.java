@@ -29,6 +29,10 @@ public interface CommandeRepository extends JpaRepository<Commande, Long> {
 
     List<Commande> findByTableIdAndStatutNotIn(Long tableId, List<StatutCommande> statuts);
 
+    /** Consu_corrige.docx §9 : un utilisateur ayant déjà encaissé une commande ne peut pas être
+     * supprimé (FK commandes.caissier_id). */
+    boolean existsByCaissierId(Long caissierId);
+
     /** Écran Suivi cuisine (EF-018) : les plus anciennes en premier, les plus urgentes. */
     List<Commande> findByEtablissementAndStatutInOrderByDateValidationAsc(Etablissement etablissement, List<StatutCommande> statuts);
 }

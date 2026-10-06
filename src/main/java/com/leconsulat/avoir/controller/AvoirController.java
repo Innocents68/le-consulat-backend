@@ -2,6 +2,7 @@ package com.leconsulat.avoir.controller;
 
 import com.leconsulat.avoir.dto.AvoirDto;
 import com.leconsulat.avoir.dto.CreateAvoirRequest;
+import com.leconsulat.avoir.dto.CreerAvoirMontantLibreRequest;
 import com.leconsulat.avoir.service.AvoirService;
 import com.leconsulat.common.util.PageableUtil;
 import com.leconsulat.common.web.PageResponse;
@@ -57,6 +58,13 @@ public class AvoirController {
     @ResponseStatus(HttpStatus.CREATED)
     public AvoirDto create(@PathVariable Long factureId, @Valid @RequestBody CreateAvoirRequest req) {
         return service.create(factureId, req);
+    }
+
+    /** Consu_corrige.docx §1 : "Nouvel avoir" à formulaire libre (montant saisi directement). */
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public AvoirDto creerMontantLibre(@Valid @RequestBody CreerAvoirMontantLibreRequest req) {
+        return service.creerMontantLibre(req);
     }
 
     @GetMapping("/{id}/avoir.pdf")

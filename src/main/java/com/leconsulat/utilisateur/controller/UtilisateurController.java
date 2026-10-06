@@ -56,6 +56,12 @@ public class UtilisateurController {
         return service.toggleStatut(id);
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void supprimer(@PathVariable Long id) {
+        service.supprimer(id);
+    }
+
     @PutMapping("/{id}/mot-de-passe")
     public ResponseEntity<Void> resetPassword(@PathVariable Long id, @Valid @RequestBody ChangePasswordRequest req) {
         service.resetPassword(id, req);

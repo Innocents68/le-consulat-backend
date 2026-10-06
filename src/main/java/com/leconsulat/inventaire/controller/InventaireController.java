@@ -11,7 +11,10 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -60,6 +63,11 @@ public class InventaireController {
         return service.saisirComptage(id, ligneId, req);
     }
 
+    @PostMapping("/{id}/valider-lignes-vides")
+    public InventaireDto validerLignesVides(@PathVariable Long id) {
+        return service.validerLignesVides(id);
+    }
+
     @PostMapping("/{id}/cloturer")
     public InventaireDto cloturer(@PathVariable Long id, @RequestBody(required = false) CloturerInventaireRequest req) {
         return service.cloturer(id, req != null ? req : new CloturerInventaireRequest(null));
@@ -68,5 +76,19 @@ public class InventaireController {
     @PostMapping("/{id}/valider")
     public InventaireDto valider(@PathVariable Long id) {
         return service.valider(id);
+    }
+
+    /** Cahier_des_charges_amelioration_inventaire_Le_Consulat.docx — export du détail (théorique,
+     * physique, écart, état) en PDF ou Excel. */
+    @GetMapping("/{id}/export")
+    public ResponseEntity<byte[]> exporter(@PathVariable Long id, @RequestParam String format) {
+        byte[] fichier = service.exporter(id, format);
+        boolean excel = "excel".equalsIgnoreCase(format) || "xlsx".equalsIgnoreCase(format);
+        MediaType type = excel ? MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") : MediaType.APPLICATION_PDF;
+        String extension = excel ? "xlsx" : "pdf";
+        return ResponseEntity.ok()
+                .contentType(type)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"inventaire." + extension + "\"")
+                .body(fichier);
     }
 }

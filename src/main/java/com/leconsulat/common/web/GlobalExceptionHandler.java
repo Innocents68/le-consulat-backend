@@ -70,18 +70,29 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
-        // RG-012 : toute tentative d'accès non autorisé est journalisée (utilisateur, date,
-        // ressource visée, adresse IP) — c'est ici, et pas dans SecurityConfig, que les refus
-        // issus de @PreAuthorize atterrissent réellement (ce @ControllerAdvice intercepte
-        // l'exception avant qu'elle n'atteigne le accessDeniedHandler du filtre de sécurité).
+        // RG-012 / Demandes_amelioration_logiciel_Le_Consulat_Professionnel.docx §4 : toute
+        // tentative d'accès non autorisé est journalisée (utilisateur, profil, date, action,
+        // ressource visée, adresse IP), même bloquée — c'est ici, et pas dans SecurityConfig, que
+        // les refus issus de @PreAuthorize atterrissent réellement (ce @ControllerAdvice
+        // intercepte l'exception avant qu'elle n'atteigne le accessDeniedHandler du filtre de
+        // sécurité).
         String utilisateur = "anonyme";
+        String profil = "—";
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails cud) {
             utilisateur = cud.getUsername();
+            profil = cud.getUtilisateur().getProfil().name();
         }
+        String action = switch (request.getMethod()) {
+            case "POST" -> "création";
+            case "PUT", "PATCH" -> "modification";
+            case "DELETE" -> "suppression";
+            default -> "accès";
+        };
         journal.enregistrer("SECURITE", "ACCES_REFUSE",
-                "Accès refusé pour " + utilisateur + " sur " + request.getRequestURI()
-                        + " depuis " + request.getRemoteAddr());
+                "Tentative de " + action + " bloquée — accès réservé au Super Administrateur. Utilisateur : "
+                        + utilisateur + " (" + profil + "). Ressource : " + request.getRequestURI()
+                        + ". Adresse IP : " + request.getRemoteAddr());
         return build(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Accès refusé : droits insuffisants pour cette action", request, null);
     }
 

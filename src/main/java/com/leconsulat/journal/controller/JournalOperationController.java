@@ -2,14 +2,14 @@ package com.leconsulat.journal.controller;
 
 import com.leconsulat.common.util.PageableUtil;
 import com.leconsulat.common.web.PageResponse;
-import com.leconsulat.etablissement.entity.Etablissement;
-import com.leconsulat.etablissement.repository.EtablissementRepository;
 import com.leconsulat.journal.dto.JournalOperationDto;
-import com.leconsulat.journal.repository.JournalOperationRepository;
-import com.leconsulat.security.PerimetreGuard;
+import com.leconsulat.journal.service.JournalOperationQueryService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,16 +25,10 @@ import java.time.LocalTime;
 @RequestMapping("/api/v1/journal-operations")
 public class JournalOperationController {
 
-    private final JournalOperationRepository repository;
-    private final EtablissementRepository etablissementRepository;
-    private final PerimetreGuard perimetreGuard;
+    private final JournalOperationQueryService service;
 
-    public JournalOperationController(JournalOperationRepository repository,
-                                       EtablissementRepository etablissementRepository,
-                                       PerimetreGuard perimetreGuard) {
-        this.repository = repository;
-        this.etablissementRepository = etablissementRepository;
-        this.perimetreGuard = perimetreGuard;
+    public JournalOperationController(JournalOperationQueryService service) {
+        this.service = service;
     }
 
     @GetMapping
@@ -50,15 +44,28 @@ public class JournalOperationController {
         Pageable pageable = PageableUtil.build(page, size, sort);
         LocalDateTime debutDt = dateDebut != null ? dateDebut.atStartOfDay() : null;
         LocalDateTime finDt = dateFin != null ? dateFin.atTime(LocalTime.MAX) : null;
-
-        Etablissement demande = etablissementId != null
-                ? etablissementRepository.findById(etablissementId).orElse(null)
-                : null;
-        Etablissement scope = perimetreGuard.scopeEtablissement(demande);
-        Long scopeId = scope != null ? scope.getId() : null;
-
-        Page<JournalOperationDto> result = repository.search(utilisateurId, module, scopeId, debutDt, finDt, pageable)
-                .map(JournalOperationDto::from);
+        Page<JournalOperationDto> result = service.search(utilisateurId, module, etablissementId, debutDt, finDt, pageable);
         return PageResponse.ofDto(result);
+    }
+
+    /** Consu_corrige.docx §8. */
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exporter(
+            @RequestParam String format,
+            @RequestParam(required = false) Long utilisateurId,
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) Long etablissementId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFin) {
+        LocalDateTime debutDt = dateDebut != null ? dateDebut.atStartOfDay() : null;
+        LocalDateTime finDt = dateFin != null ? dateFin.atTime(LocalTime.MAX) : null;
+        byte[] fichier = service.exporter(format, utilisateurId, module, etablissementId, debutDt, finDt);
+        boolean excel = "excel".equalsIgnoreCase(format) || "xlsx".equalsIgnoreCase(format);
+        MediaType type = excel ? MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") : MediaType.APPLICATION_PDF;
+        String extension = excel ? "xlsx" : "pdf";
+        return ResponseEntity.ok()
+                .contentType(type)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"journal-operations." + extension + "\"")
+                .body(fichier);
     }
 }

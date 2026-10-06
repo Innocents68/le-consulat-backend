@@ -23,4 +23,8 @@ public interface InventaireRepository extends JpaRepository<Inventaire, Long> {
                              @Param("dateDebut") LocalDate dateDebut,
                              @Param("dateFin") LocalDate dateFin,
                              Pageable pageable);
+
+    /** Consu_corrige.docx §9 : un utilisateur ayant participé à un inventaire (auteur ou
+     * validateur) ne peut pas être supprimé. */
+    boolean existsByAuteurIdOrValidateurId(Long auteurId, Long validateurId);
 }

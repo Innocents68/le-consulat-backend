@@ -20,6 +20,10 @@ import java.util.List;
  * {@code PerimetreGuard.scopeEtablissement}, jamais nul. */
 public interface LigneCommandeRepository extends JpaRepository<LigneCommande, Long> {
 
+    /** Consu_corrige.docx §3 : vérifie qu'un produit n'a jamais été vendu avant d'autoriser sa
+     * suppression définitive (sinon FK violée sur lignes_commande.produit_id). */
+    boolean existsByProduitId(Long produitId);
+
     /** Vente = commande validée (a une date de validation) et non annulée. Le mode de paiement
      * n'est pas porté par la ligne : filtré via une sous-requête corrélée sur {@code Facture}. */
     @Query("select l from LigneCommande l where " +

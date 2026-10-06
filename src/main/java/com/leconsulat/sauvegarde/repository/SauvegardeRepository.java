@@ -14,4 +14,8 @@ public interface SauvegardeRepository extends JpaRepository<Sauvegarde, Long> {
 
     /** EF-045 : purge de rétention (30 jours minimum). */
     List<Sauvegarde> findByDateCreationBefore(LocalDateTime seuil);
+
+    /** Consu_corrige.docx §9 : un utilisateur ayant déjà déclenché une sauvegarde ne peut pas
+     * être supprimé (FK sauvegardes.auteur_id). */
+    boolean existsByAuteurId(Long auteurId);
 }

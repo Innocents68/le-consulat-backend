@@ -14,6 +14,12 @@ import java.util.List;
 
 public interface MouvementStockRepository extends JpaRepository<MouvementStock, Long> {
 
+    /** Consu_corrige.docx §3/§9 : vérifie l'usage d'un produit ou d'un utilisateur avant
+     * suppression définitive (sinon FK violée sur mouvements_stock). */
+    boolean existsByProduitId(Long produitId);
+
+    boolean existsByAuteurId(Long auteurId);
+
     @Query("select m from MouvementStock m where m.etablissement = :etablissement " +
             "and (cast(:produitId as long) is null or m.produit.id = :produitId) " +
             "and (:type is null or m.type = :type) " +

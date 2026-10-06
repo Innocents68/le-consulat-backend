@@ -13,6 +13,7 @@ public record InventaireDto(
         String etablissementNom,
         LocalDate dateInventaire,
         String statut,
+        String mode,
         Long auteurId,
         String auteurNom,
         Long validateurId,
@@ -26,7 +27,7 @@ public record InventaireDto(
     public static InventaireDto from(Inventaire i) {
         return new InventaireDto(i.getId(), i.getNumero(),
                 i.getEtablissement().getId(), i.getEtablissement().getNom(),
-                i.getDateInventaire(), i.getStatut().name(),
+                i.getDateInventaire(), i.getStatut().name(), i.getMode().name(),
                 i.getAuteur().getId(), i.getAuteur().getNom(),
                 i.getValidateur() != null ? i.getValidateur().getId() : null,
                 i.getValidateur() != null ? i.getValidateur().getNom() : null,
@@ -40,7 +41,7 @@ public record InventaireDto(
     public static InventaireDto summary(Inventaire i) {
         return new InventaireDto(i.getId(), i.getNumero(),
                 i.getEtablissement().getId(), i.getEtablissement().getNom(),
-                i.getDateInventaire(), i.getStatut().name(),
+                i.getDateInventaire(), i.getStatut().name(), i.getMode().name(),
                 i.getAuteur().getId(), i.getAuteur().getNom(),
                 i.getValidateur() != null ? i.getValidateur().getId() : null,
                 i.getValidateur() != null ? i.getValidateur().getNom() : null,

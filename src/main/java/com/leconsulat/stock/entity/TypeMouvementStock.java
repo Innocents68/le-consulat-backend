@@ -9,5 +9,9 @@ public enum TypeMouvementStock {
     RETOUR_AVOIR,
     TRANSFERT_SORTANT,
     TRANSFERT_ENTRANT,
-    AJUSTEMENT_INVENTAIRE
+    AJUSTEMENT_INVENTAIRE,
+    /** Consu_corrige.docx §4 : stock réintégré suite à la suppression d'une facture par un
+     * Super Administrateur (cas exceptionnel — distinct de RETOUR_AVOIR qui ne concerne qu'une
+     * correction partielle via avoir). */
+    ANNULATION_FACTURE
 }

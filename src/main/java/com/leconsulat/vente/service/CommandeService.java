@@ -249,6 +249,23 @@ public class CommandeService {
         return CommandeDto.from(saved);
     }
 
+    /** Consu_corrige.docx §2/§6 : suppression réservée au Super Administrateur, et uniquement
+     * pour une commande jamais facturée (NON_VALIDEE ou ANNULEE) — une commande déjà encaissée a
+     * une Facture/un Paiement qui la référencent (FK) et casserait la traçabilité comptable si on
+     * la supprimait ; pour corriger une vente déjà facturée, on passe par un avoir (§6.2.7). */
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
+    @Transactional
+    public void supprimer(Long commandeId) {
+        Commande commande = findEntityChecked(commandeId);
+        if (commande.getStatut() != StatutCommande.NON_VALIDEE && commande.getStatut() != StatutCommande.ANNULEE) {
+            throw new BusinessRuleException("Impossible de supprimer une commande déjà facturée — utilisez un avoir sur sa facture");
+        }
+        libererTableSiOccupeeParCetteCommande(commande);
+        String numero = commande.getNumero();
+        repository.delete(commande);
+        journal.enregistrer("COMMANDES", "SUPPRESSION", "Commande " + numero + " supprimée");
+    }
+
     @Transactional
     public CommandeDto annuler(Long commandeId, AnnulerCommandeRequest req) {
         Commande commande = findEntityChecked(commandeId);

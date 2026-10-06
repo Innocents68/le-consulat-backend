@@ -9,10 +9,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ProduitRepository extends JpaRepository<Produit, Long> {
 
     List<Produit> findByEtablissementAndActifTrueAndSuiviStockTrue(Etablissement etablissement);
+
+    /** Scan d'un code-barres (fabricant ou généré) — scopé à l'établissement actif, un même code
+     * réel pouvant exister comme deux lignes Produit séparées dans deux établissements (RG-002). */
+    Optional<Produit> findByCodeBarreAndEtablissementId(String codeBarre, Long etablissementId);
+
+    boolean existsByEtablissementAndCodeBarre(Etablissement etablissement, String codeBarre);
 
     @Query("select p from Produit p where p.etablissement = :etablissement " +
             "and (cast(:categorieId as long) is null or p.categorie.id = :categorieId) " +
@@ -27,4 +34,14 @@ public interface ProduitRepository extends JpaRepository<Produit, Long> {
                           Pageable pageable);
 
     boolean existsByEtablissementAndNomIgnoreCase(Etablissement etablissement, String nom);
+
+    boolean existsByFournisseurId(Long fournisseurId);
+
+    /** Consu_corrige.docx §7 : produits suivis en stock actuellement sous (ou à) leur seuil
+     * d'alerte — comparaison quantité/seuil ligne à ligne, impossible à exprimer en nom de
+     * méthode dérivé, d'où le JPQL explicite. */
+    @Query("select p from Produit p where p.etablissement = :etablissement and p.actif = true " +
+            "and p.suiviStock = true and p.seuilAlerte is not null and p.quantiteStock <= p.seuilAlerte " +
+            "order by p.nom")
+    List<Produit> findEnAlerteStock(@Param("etablissement") Etablissement etablissement);
 }

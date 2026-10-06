@@ -3,7 +3,6 @@ package com.leconsulat.catalogue.controller;
 import com.leconsulat.catalogue.dto.*;
 import com.leconsulat.catalogue.service.ProduitService;
 import com.leconsulat.catalogue.util.QrCodeGenerator;
-import com.leconsulat.common.exception.BusinessRuleException;
 import com.leconsulat.common.util.PageableUtil;
 import com.leconsulat.common.web.PageResponse;
 import jakarta.validation.Valid;
@@ -45,6 +44,11 @@ public class ProduitController {
         return service.get(id);
     }
 
+    @GetMapping("/alertes-stock")
+    public java.util.List<ProduitDto> alertesStock(@RequestParam(required = false) Long etablissementId) {
+        return service.alertesStock(etablissementId);
+    }
+
     @GetMapping("/{id}/historique-prix")
     public List<HistoriquePrixDto> historiquePrix(@PathVariable Long id) {
         return service.historiquePrix(id);
@@ -59,16 +63,22 @@ public class ProduitController {
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
     }
 
-    /** Recommandations et corrections.md §6/7 : retrouve un produit à partir du texte décodé
-     * d'un QR scanné (Nouvelle entrée/sortie, Nouvelle commande) — même contrôle de périmètre
-     * que {@link #get}. */
+    /** Recommandations et corrections.md §6/7 + suivi code-barres : retrouve un produit à partir
+     * du texte décodé (QR interne OU code-barres, {@code etablissementId} permettant de
+     * désambiguïser ce dernier — RG-002, le même code réel peut exister dans deux établissements)
+     * scanné depuis Nouvelle entrée/sortie ou Nouvelle commande. Même contrôle de périmètre que
+     * {@link #get}. */
     @GetMapping("/scanner")
-    public ProduitDto parQrCode(@RequestParam String code) {
-        Long id = QrCodeGenerator.extraireIdProduit(code);
-        if (id == null) {
-            throw new BusinessRuleException("QR code illisible ou invalide");
-        }
-        return service.get(id);
+    public ProduitDto parCodeScanne(@RequestParam String code, @RequestParam(required = false) Long etablissementId) {
+        return service.resoudreParCodeScanne(code, etablissementId);
+    }
+
+    /** Code-barres (généré ou recopié d'un produit acheté) — consultable, téléchargeable et
+     * imprimable depuis le frontend, comme le QR code. */
+    @GetMapping(value = "/{id}/codebarre.png", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> codebarre(@PathVariable Long id) {
+        byte[] png = service.genererCodeBarrePng(id);
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
     }
 
     @PostMapping
@@ -85,5 +95,11 @@ public class ProduitController {
     @PatchMapping("/{id}/statut")
     public void toggleActif(@PathVariable Long id) {
         service.toggleActif(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void supprimer(@PathVariable Long id) {
+        service.supprimer(id);
     }
 }

@@ -4,6 +4,8 @@ import com.leconsulat.catalogue.entity.Produit;
 import com.leconsulat.catalogue.repository.ProduitRepository;
 import com.leconsulat.common.audit.JournalOperationService;
 import com.leconsulat.common.exception.BusinessRuleException;
+import com.leconsulat.common.util.ExcelGenerator;
+import com.leconsulat.common.util.PdfGenerator;
 import com.leconsulat.common.exception.ResourceNotFoundException;
 import com.leconsulat.common.exception.UnauthorizedException;
 import com.leconsulat.etablissement.entity.Etablissement;
@@ -14,6 +16,7 @@ import com.leconsulat.inventaire.dto.InventaireDto;
 import com.leconsulat.inventaire.dto.StockPhysiqueRequest;
 import com.leconsulat.inventaire.entity.Inventaire;
 import com.leconsulat.inventaire.entity.LigneInventaire;
+import com.leconsulat.inventaire.entity.ModeInventaire;
 import com.leconsulat.inventaire.entity.StatutInventaire;
 import com.leconsulat.inventaire.repository.InventaireRepository;
 import com.leconsulat.numerotation.service.NumerotationService;
@@ -83,6 +86,7 @@ public class InventaireService {
         inventaire.setCommentaire(req.commentaire());
         inventaire.setAuteur(currentUtilisateur());
         inventaire.setStatut(StatutInventaire.BROUILLON);
+        inventaire.setMode(req.mode() != null && !req.mode().isBlank() ? parseMode(req.mode()) : ModeInventaire.RAPIDE);
 
         for (Produit p : produits) {
             LigneInventaire ligne = new LigneInventaire();
@@ -123,6 +127,30 @@ public class InventaireService {
         return InventaireDto.from(repository.save(inventaire));
     }
 
+    /** Cahier_des_charges_amelioration_inventaire_Le_Consulat.docx §6 : "Valider les stocks
+     * inchangés" / "Valider tout le théorique" — matérialise le stock théorique sur toutes les
+     * lignes encore vides (non comptées), pour qu'elles apparaissent "Conforme" pendant le
+     * comptage sans attendre la clôture. Peut être appelé plusieurs fois sans effet de bord :
+     * ne touche jamais une ligne déjà comptée, même à 0. */
+    @Transactional
+    public InventaireDto validerLignesVides(Long id) {
+        Inventaire inventaire = findEntityChecked(id);
+        if (inventaire.getStatut() != StatutInventaire.EN_COMPTAGE) {
+            throw new BusinessRuleException("Le comptage n'est pas en cours sur cet inventaire");
+        }
+        int n = 0;
+        for (LigneInventaire ligne : inventaire.getLignes()) {
+            if (ligne.getStockPhysique() == null) {
+                ligne.setStockPhysique(ligne.getStockTheorique());
+                n++;
+            }
+        }
+        Inventaire saved = repository.save(inventaire);
+        journal.enregistrer("STOCKS", "INVENTAIRE_LIGNES_VIDES_VALIDEES",
+                "Inventaire " + saved.getNumero() + " : " + n + " ligne(s) vide(s) validée(s) conformes au théorique");
+        return InventaireDto.from(saved);
+    }
+
     @Transactional
     public InventaireDto cloturer(Long id, CloturerInventaireRequest req) {
         Inventaire inventaire = findEntityChecked(id);
@@ -130,8 +158,15 @@ public class InventaireService {
             throw new BusinessRuleException("Le comptage n'est pas en cours sur cet inventaire");
         }
         boolean incomplet = inventaire.getLignes().stream().anyMatch(l -> l.getStockPhysique() == null);
-        if (incomplet) {
-            throw new BusinessRuleException("Toutes les lignes doivent être comptées avant de clôturer l'inventaire");
+        if (incomplet && inventaire.getMode() == ModeInventaire.COMPLET) {
+            throw new BusinessRuleException("Toutes les lignes doivent être comptées avant de clôturer un inventaire en mode complet");
+        }
+        // §2/§14 : une ligne restée vide (mode rapide) retient le stock théorique — matérialisé ici
+        // pour que la quantité retenue soit déterminée et figée avant clôture.
+        for (LigneInventaire ligne : inventaire.getLignes()) {
+            if (ligne.getStockPhysique() == null) {
+                ligne.setStockPhysique(ligne.getStockTheorique());
+            }
         }
         for (LigneInventaire ligne : inventaire.getLignes()) {
             BigDecimal ecart = ligne.getStockPhysique().subtract(ligne.getStockTheorique());
@@ -170,11 +205,56 @@ public class InventaireService {
         return InventaireDto.from(saved);
     }
 
+    /** Export PDF/Excel d'un inventaire (§7 du cahier des charges Inventaire — appui à la demande
+     * du client). Écart calculé en direct (vide = théorique, §2/§14) : reste correct que
+     * l'inventaire soit encore en comptage ou déjà clôturé (où stockPhysique est de toute façon
+     * déjà matérialisé, cf. {@link #cloturer}). */
+    public byte[] exporter(Long id, String format) {
+        Inventaire inventaire = findEntityChecked(id);
+        String[] headers = {"Produit", "Catégorie", "Stock théorique", "Stock physique", "Écart", "État"};
+        List<String[]> rows = inventaire.getLignes().stream().map(l -> {
+            BigDecimal theorique = l.getStockTheorique();
+            BigDecimal physique = l.getStockPhysique();
+            BigDecimal retenu = physique != null ? physique : theorique;
+            BigDecimal ecart = retenu.subtract(theorique);
+            boolean conforme = ecart.compareTo(BigDecimal.ZERO) == 0;
+            return new String[]{
+                    l.getProduitNom(),
+                    l.getProduit().getCategorie().getNom(),
+                    theorique.toPlainString(),
+                    physique != null ? physique.toPlainString() : "—",
+                    (ecart.compareTo(BigDecimal.ZERO) > 0 ? "+" : "") + ecart.toPlainString(),
+                    conforme ? "Conforme" : "Écart",
+            };
+        }).toList();
+        List<String[]> entete = List.of(
+                new String[]{"Numéro", inventaire.getNumero()},
+                new String[]{"Établissement", inventaire.getEtablissement().getNom()},
+                new String[]{"Date", inventaire.getDateInventaire().toString()},
+                new String[]{"Statut", inventaire.getStatut().name()},
+                new String[]{"Mode", inventaire.getMode().name()},
+                new String[]{"Auteur", inventaire.getAuteur().getNom()}
+        );
+        String titre = "Inventaire " + inventaire.getNumero();
+        if ("excel".equalsIgnoreCase(format) || "xlsx".equalsIgnoreCase(format)) {
+            return ExcelGenerator.simpleSheet(titre, headers, rows);
+        }
+        return PdfGenerator.simpleDocument(titre, entete, headers, rows);
+    }
+
     private StatutInventaire parseStatut(String statut) {
         try {
             return StatutInventaire.valueOf(statut.trim().toUpperCase());
         } catch (Exception e) {
             throw new BusinessRuleException("Statut d'inventaire inconnu : " + statut);
+        }
+    }
+
+    private ModeInventaire parseMode(String mode) {
+        try {
+            return ModeInventaire.valueOf(mode.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new BusinessRuleException("Mode d'inventaire inconnu : " + mode);
         }
     }
 

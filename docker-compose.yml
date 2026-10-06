@@ -5,6 +5,11 @@ services:
     image: postgres:16-alpine
     container_name: leconsulat-db
     restart: unless-stopped
+    # Tuning pour un VPS à 4 Go de RAM total (1 vCPU) : les valeurs par défaut de l'image
+    # (shared_buffers=128MB mais surtout aucun plafond de connexions bas) laissent trop peu de
+    # marge une fois le conteneur backend et son tas JVM pris en compte — voir mem_limit ci-dessous.
+    command: postgres -c shared_buffers=192MB -c max_connections=40 -c work_mem=8MB -c maintenance_work_mem=32MB
+    mem_limit: 700m
     environment:
       POSTGRES_DB: ${DB_NAME:-leconsulat}
       POSTGRES_USER: ${DB_USER:-leconsulat}
@@ -31,8 +36,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # -Xmx1536m : plafond du tas JVM, sur un VPS à 4 Go total (voir postgres.mem_limit +
+    # OS/Nginx/Docker en dehors des conteneurs) — sans ce plafond la JVM peut réserver bien plus
+    # que nécessaire et provoquer un OOM kill au pire moment (RAM totale, pas de swap infini).
+    mem_limit: 1800m
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xmx1536m -Xss512k"
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-leconsulat}
       DB_USER: ${DB_USER:-leconsulat}
       DB_PASSWORD: ${DB_PASSWORD:-leconsulat}

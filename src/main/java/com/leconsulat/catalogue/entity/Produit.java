@@ -65,6 +65,13 @@ public class Produit {
     @JoinColumn(name = "fournisseur_id")
     private Fournisseur fournisseur;
 
+    /** Code-barres (EAN-13 du fabricant si le produit en a déjà un sur son emballage, sinon un
+     * code interne généré automatiquement à la création). Unique par établissement, comme
+     * {@code nom} — pas globalement unique : le même article réel peut exister comme deux lignes
+     * Produit séparées dans deux établissements différents (RG-002), chacune avec son propre code. */
+    @Column(length = 50)
+    private String codeBarre;
+
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "etablissement_id", nullable = false)
     private Etablissement etablissement;
@@ -190,5 +197,13 @@ public class Produit {
 
     public void setFournisseur(Fournisseur fournisseur) {
         this.fournisseur = fournisseur;
+    }
+
+    public String getCodeBarre() {
+        return codeBarre;
+    }
+
+    public void setCodeBarre(String codeBarre) {
+        this.codeBarre = codeBarre;
     }
 }

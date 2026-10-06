@@ -34,4 +34,15 @@ public class FournisseurController {
     public void toggleActif(@PathVariable Long id) {
         service.toggleActif(id);
     }
+
+    @PutMapping("/{id}")
+    public FournisseurDto update(@PathVariable Long id, @Valid @RequestBody CreateFournisseurRequest req) {
+        return service.update(id, req);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void supprimer(@PathVariable Long id) {
+        service.supprimer(id);
+    }
 }

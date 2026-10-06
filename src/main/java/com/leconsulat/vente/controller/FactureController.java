@@ -2,12 +2,15 @@ package com.leconsulat.vente.controller;
 
 import com.leconsulat.common.util.PageableUtil;
 import com.leconsulat.common.web.PageResponse;
+import com.leconsulat.vente.dto.DeleteFactureRequest;
 import com.leconsulat.vente.dto.FactureDto;
 import com.leconsulat.vente.service.FactureService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +48,12 @@ public class FactureController {
     @GetMapping("/{id}")
     public FactureDto get(@PathVariable Long id) {
         return service.get(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void supprimer(@PathVariable Long id, @Valid @RequestBody DeleteFactureRequest req) {
+        service.supprimer(id, req);
     }
 
     @PostMapping("/{id}/reimprimer")

@@ -83,7 +83,9 @@ public class MouvementStockService {
         return MouvementStockDto.from(m);
     }
 
-    /** RG-084 : réservé au Super Administrateur, seul à avoir la vision des deux périmètres. */
+    /** RG-084 : réservé au Super Administrateur, seul à avoir la vision des deux périmètres —
+     * transfert immédiat, sans passer par le workflow de demande/acceptation (Demandes_
+     * amelioration_logiciel_Le_Consulat_Professionnel.docx §5, cf. {@code DemandeTransfertService}). */
     @PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
     @Transactional
     public void transfert(TransfertStockRequest req) {
@@ -91,24 +93,33 @@ public class MouvementStockService {
                 .orElseThrow(() -> ResourceNotFoundException.of("Produit", req.produitSourceId()));
         Produit destination = produitRepository.findById(req.produitDestinationId())
                 .orElseThrow(() -> ResourceNotFoundException.of("Produit", req.produitDestinationId()));
+        effectuerTransfert(source, destination, req.quantite());
+    }
+
+    /** Cœur du transfert, partagé par {@link #transfert} (immédiat, Super Administrateur) et par
+     * {@code DemandeTransfertService.accepter} (workflow avec approbation) — volontairement sans
+     * {@code @PreAuthorize} : l'autorisation est de la responsabilité de l'appelant (rôle direct
+     * ici, {@code PerimetreGuard.aAcces} sur l'établissement destinataire côté demande). */
+    @Transactional
+    public void effectuerTransfert(Produit source, Produit destination, BigDecimal quantite) {
         if (source.getEtablissement().getId().equals(destination.getEtablissement().getId())) {
             throw new BusinessRuleException("Un transfert doit se faire entre deux établissements différents");
         }
-        if (req.quantite().compareTo(source.getQuantiteStock()) > 0) {
+        if (quantite.compareTo(source.getQuantiteStock()) > 0) {
             throw new BusinessRuleException("Stock insuffisant pour " + source.getNom());
         }
         String reference = UUID.randomUUID().toString();
-        MouvementStock sortant = enregistrer(source, TypeMouvementStock.TRANSFERT_SORTANT, req.quantite(), null, null);
+        MouvementStock sortant = enregistrer(source, TypeMouvementStock.TRANSFERT_SORTANT, quantite, null, null);
         sortant.setReferenceTransfert(reference);
         repository.save(sortant);
-        MouvementStock entrant = enregistrer(destination, TypeMouvementStock.TRANSFERT_ENTRANT, req.quantite(), null, null);
+        MouvementStock entrant = enregistrer(destination, TypeMouvementStock.TRANSFERT_ENTRANT, quantite, null, null);
         entrant.setReferenceTransfert(reference);
         repository.save(entrant);
-        source.setQuantiteStock(source.getQuantiteStock().subtract(req.quantite()));
-        destination.setQuantiteStock(destination.getQuantiteStock().add(req.quantite()));
+        source.setQuantiteStock(source.getQuantiteStock().subtract(quantite));
+        destination.setQuantiteStock(destination.getQuantiteStock().add(quantite));
         produitRepository.save(source);
         produitRepository.save(destination);
-        journal.enregistrer("STOCKS", "TRANSFERT", "Transfert de " + req.quantite() + " " + source.getUnite() + " de "
+        journal.enregistrer("STOCKS", "TRANSFERT", "Transfert de " + quantite + " " + source.getUnite() + " de "
                 + source.getNom() + " (" + source.getEtablissement().getNom() + ") vers "
                 + destination.getNom() + " (" + destination.getEtablissement().getNom() + ")");
     }
@@ -128,6 +139,15 @@ public class MouvementStockService {
      * {@code remiseEnStock == true}. */
     public void enregistrerRetourAvoir(Produit produit, BigDecimal quantite) {
         enregistrer(produit, TypeMouvementStock.RETOUR_AVOIR, quantite, null, null);
+        produit.setQuantiteStock(produit.getQuantiteStock().add(quantite));
+        produitRepository.save(produit);
+    }
+
+    /** Consu_corrige.docx §4 — appelé uniquement par {@code FactureService.supprimer()} : réintègre
+     * en stock ce qu'une vente avait décrémenté, quand un Super Administrateur supprime la facture
+     * (cas exceptionnel, distinct de {@link #enregistrerRetourAvoir}). */
+    public void enregistrerAnnulationFacture(Produit produit, BigDecimal quantite) {
+        enregistrer(produit, TypeMouvementStock.ANNULATION_FACTURE, quantite, null, null);
         produit.setQuantiteStock(produit.getQuantiteStock().add(quantite));
         produitRepository.save(produit);
     }

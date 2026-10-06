@@ -82,6 +82,12 @@ public class CommandeController {
         return service.retirerRemise(id);
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void supprimer(@PathVariable Long id) {
+        service.supprimer(id);
+    }
+
     @PostMapping("/{id}/annuler")
     public CommandeDto annuler(@PathVariable Long id, @Valid @RequestBody AnnulerCommandeRequest req) {
         return service.annuler(id, req);

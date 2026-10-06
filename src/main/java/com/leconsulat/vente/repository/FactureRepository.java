@@ -12,8 +12,13 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface FactureRepository extends JpaRepository<Facture, Long> {
+
+    /** Consu_corrige.docx §1 : retrouver une facture par son numéro pour y rattacher un nouvel
+     * avoir saisi librement (formulaire "Nouvel avoir", sans passer par la sélection de lignes). */
+    Optional<Facture> findByNumero(String numero);
 
     /** §6.9 (Reporting) : mêmes filtres que {@link #sommeRecettes}, mais la liste complète pour
      * un regroupement en mémoire (par jour, par mode, par utilisateur) — évite d'introduire du

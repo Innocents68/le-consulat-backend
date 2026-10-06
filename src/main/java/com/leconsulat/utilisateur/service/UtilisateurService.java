@@ -1,11 +1,16 @@
 package com.leconsulat.utilisateur.service;
 
+import com.leconsulat.avoir.repository.AvoirRepository;
 import com.leconsulat.common.audit.JournalOperationService;
 import com.leconsulat.common.exception.BadRequestException;
 import com.leconsulat.common.exception.BusinessRuleException;
 import com.leconsulat.common.exception.ResourceNotFoundException;
+import com.leconsulat.depense.repository.DepenseRepository;
 import com.leconsulat.etablissement.entity.Etablissement;
 import com.leconsulat.etablissement.repository.EtablissementRepository;
+import com.leconsulat.inventaire.repository.InventaireRepository;
+import com.leconsulat.sauvegarde.repository.SauvegardeRepository;
+import com.leconsulat.stock.repository.MouvementStockRepository;
 import com.leconsulat.utilisateur.dto.ChangePasswordRequest;
 import com.leconsulat.utilisateur.dto.CreateUtilisateurRequest;
 import com.leconsulat.utilisateur.dto.UpdateUtilisateurRequest;
@@ -13,6 +18,7 @@ import com.leconsulat.utilisateur.dto.UtilisateurDto;
 import com.leconsulat.utilisateur.entity.Profil;
 import com.leconsulat.utilisateur.entity.Utilisateur;
 import com.leconsulat.utilisateur.repository.UtilisateurRepository;
+import com.leconsulat.vente.repository.CommandeRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,13 +33,28 @@ public class UtilisateurService {
     private final EtablissementRepository etablissementRepository;
     private final PasswordEncoder passwordEncoder;
     private final JournalOperationService journal;
+    private final CommandeRepository commandeRepository;
+    private final MouvementStockRepository mouvementStockRepository;
+    private final AvoirRepository avoirRepository;
+    private final DepenseRepository depenseRepository;
+    private final InventaireRepository inventaireRepository;
+    private final SauvegardeRepository sauvegardeRepository;
 
     public UtilisateurService(UtilisateurRepository repository, EtablissementRepository etablissementRepository,
-                               PasswordEncoder passwordEncoder, JournalOperationService journal) {
+                               PasswordEncoder passwordEncoder, JournalOperationService journal,
+                               CommandeRepository commandeRepository, MouvementStockRepository mouvementStockRepository,
+                               AvoirRepository avoirRepository, DepenseRepository depenseRepository,
+                               InventaireRepository inventaireRepository, SauvegardeRepository sauvegardeRepository) {
         this.repository = repository;
         this.etablissementRepository = etablissementRepository;
         this.passwordEncoder = passwordEncoder;
         this.journal = journal;
+        this.commandeRepository = commandeRepository;
+        this.mouvementStockRepository = mouvementStockRepository;
+        this.avoirRepository = avoirRepository;
+        this.depenseRepository = depenseRepository;
+        this.inventaireRepository = inventaireRepository;
+        this.sauvegardeRepository = sauvegardeRepository;
     }
 
     public Page<UtilisateurDto> list(String search, Pageable pageable) {
@@ -89,6 +110,26 @@ public class UtilisateurService {
         Utilisateur saved = repository.save(u);
         journal.enregistrer("UTILISATEURS", "ARCHIVAGE", "Utilisateur " + saved.getUsername() + " -> actif=" + saved.isActif());
         return UtilisateurDto.from(saved);
+    }
+
+    /** Consu_corrige.docx §9/§6 : ajout d'une vraie suppression à côté de la désactivation
+     * existante (pas un remplacement, contrairement au produit) — mais impossible dès que
+     * l'utilisateur a une trace ailleurs (commande encaissée, mouvement de stock, avoir, dépense,
+     * inventaire, sauvegarde) : ces FK seraient violées, et on ne veut de toute façon jamais
+     * perdre qui a fait quoi. Dans ce cas, désactiver reste le seul moyen de lui couper l'accès. */
+    @Transactional
+    public void supprimer(Long id) {
+        Utilisateur u = findEntity(id);
+        boolean utilise = commandeRepository.existsByCaissierId(id) || mouvementStockRepository.existsByAuteurId(id)
+                || avoirRepository.existsByAuteurId(id) || depenseRepository.existsByUtilisateurId(id)
+                || inventaireRepository.existsByAuteurIdOrValidateurId(id, id) || sauvegardeRepository.existsByAuteurId(id);
+        if (utilise) {
+            throw new BusinessRuleException("Cet utilisateur a déjà une activité enregistrée (commande, stock, avoir, dépense...) "
+                    + "et ne peut pas être supprimé définitivement — désactivez-le à la place");
+        }
+        String username = u.getUsername();
+        repository.delete(u);
+        journal.enregistrer("UTILISATEURS", "SUPPRESSION", "Utilisateur " + username + " supprimé");
     }
 
     @Transactional

@@ -39,4 +39,8 @@ public interface DepenseRepository extends JpaRepository<Depense, Long> {
                              @Param("dateFin") LocalDate dateFin,
                              @Param("utilisateurId") Long utilisateurId,
                              @Param("mode") ModePaiement mode);
+
+    /** Consu_corrige.docx §9 : un utilisateur ayant déjà saisi une dépense ne peut pas être
+     * supprimé (FK depenses.utilisateur_id). */
+    boolean existsByUtilisateurId(Long utilisateurId);
 }
