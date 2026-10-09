@@ -13,14 +13,12 @@ import com.leconsulat.security.PerimetreGuard;
 import com.leconsulat.stock.dto.EntreeStockRequest;
 import com.leconsulat.stock.dto.MouvementStockDto;
 import com.leconsulat.stock.dto.SortieStockRequest;
-import com.leconsulat.stock.dto.TransfertStockRequest;
 import com.leconsulat.stock.entity.MouvementStock;
 import com.leconsulat.stock.entity.TypeMouvementStock;
 import com.leconsulat.stock.repository.MouvementStockRepository;
 import com.leconsulat.utilisateur.entity.Utilisateur;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,23 +81,12 @@ public class MouvementStockService {
         return MouvementStockDto.from(m);
     }
 
-    /** RG-084 : réservé au Super Administrateur, seul à avoir la vision des deux périmètres —
-     * transfert immédiat, sans passer par le workflow de demande/acceptation (Demandes_
-     * amelioration_logiciel_Le_Consulat_Professionnel.docx §5, cf. {@code DemandeTransfertService}). */
-    @PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
-    @Transactional
-    public void transfert(TransfertStockRequest req) {
-        Produit source = produitRepository.findById(req.produitSourceId())
-                .orElseThrow(() -> ResourceNotFoundException.of("Produit", req.produitSourceId()));
-        Produit destination = produitRepository.findById(req.produitDestinationId())
-                .orElseThrow(() -> ResourceNotFoundException.of("Produit", req.produitDestinationId()));
-        effectuerTransfert(source, destination, req.quantite());
-    }
-
-    /** Cœur du transfert, partagé par {@link #transfert} (immédiat, Super Administrateur) et par
-     * {@code DemandeTransfertService.accepter} (workflow avec approbation) — volontairement sans
-     * {@code @PreAuthorize} : l'autorisation est de la responsabilité de l'appelant (rôle direct
-     * ici, {@code PerimetreGuard.aAcces} sur l'établissement destinataire côté demande). */
+    /** Cahier_de_corrections_Le_Consulat.docx §1.1 : le transfert immédiat (ex RG-084, Super
+     * Administrateur) a été retiré — tout transfert entre établissements passe désormais par le
+     * workflow de demande/acceptation ({@code DemandeTransfertService}). Ce cœur de transfert
+     * reste partagé/appelé uniquement par {@code DemandeTransfertService.accepter} — volontairement
+     * sans {@code @PreAuthorize} : l'autorisation est de la responsabilité de l'appelant
+     * ({@code PerimetreGuard.aAcces} sur l'établissement destinataire côté demande). */
     @Transactional
     public void effectuerTransfert(Produit source, Produit destination, BigDecimal quantite) {
         if (source.getEtablissement().getId().equals(destination.getEtablissement().getId())) {

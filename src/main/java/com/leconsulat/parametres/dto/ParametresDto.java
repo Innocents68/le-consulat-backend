@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 
 public record ParametresDto(
         String logoUrl,
+        String guidePdfUrl,
         String nomMagasin,
         String adresse,
         String telephone,
@@ -19,7 +20,7 @@ public record ParametresDto(
         BigDecimal plafondRemiseMontant
 ) {
     public static ParametresDto from(ParametresGeneraux p) {
-        return new ParametresDto(p.getLogoUrl(), p.getNomMagasin(), p.getAdresse(), p.getTelephone(), p.getEmail(),
+        return new ParametresDto(p.getLogoUrl(), p.getGuidePdfUrl(), p.getNomMagasin(), p.getAdresse(), p.getTelephone(), p.getEmail(),
                 p.getMessageFin(), p.getDevise(), p.getFormatTicket().name(), p.getNombreCopies(),
                 p.getSeuilAlerteDefaut(), p.getPlafondRemisePourcentage(), p.getPlafondRemiseMontant());
     }

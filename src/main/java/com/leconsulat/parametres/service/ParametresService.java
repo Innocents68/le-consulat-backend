@@ -102,6 +102,41 @@ public class ParametresService {
         return ParametresDto.from(repository.save(p));
     }
 
+    /** Cahier_de_corrections_Le_Consulat.docx §4 : guide utilisateur PDF, même pattern que
+     * {@link #uploadLogo}, fichier unique conservé sous {@code {uploadsDir}/guide/guide.pdf}. */
+    @PreAuthorize("hasRole('SUPER_ADMINISTRATEUR')")
+    @Transactional
+    public ParametresDto uploadGuidePdf(MultipartFile fichier) {
+        if (fichier == null || fichier.isEmpty()) {
+            throw new BusinessRuleException("Aucun fichier fourni");
+        }
+        String extension = extensionDe(fichier.getOriginalFilename());
+        boolean typePdf = "application/pdf".equalsIgnoreCase(fichier.getContentType()) || ".pdf".equalsIgnoreCase(extension);
+        if (!typePdf) {
+            throw new BusinessRuleException("Le guide doit être un fichier PDF");
+        }
+        try {
+            Path dossier = Path.of(uploadsDir, "guide");
+            Files.createDirectories(dossier);
+            try (var flux = Files.list(dossier)) {
+                flux.sorted(Comparator.naturalOrder()).forEach(f -> {
+                    try {
+                        Files.deleteIfExists(f);
+                    } catch (IOException ignored) {
+                        // best-effort — un fichier verrouillé ne doit pas bloquer le nouvel upload.
+                    }
+                });
+            }
+            Path cible = dossier.resolve("guide.pdf");
+            fichier.transferTo(cible);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Erreur lors de l'enregistrement du guide", e);
+        }
+        ParametresGeneraux p = charger();
+        p.setGuidePdfUrl("/uploads/guide/guide.pdf");
+        return ParametresDto.from(repository.save(p));
+    }
+
     private ParametresGeneraux charger() {
         return repository.findById(1L).orElseGet(() -> repository.save(new ParametresGeneraux()));
     }

@@ -16,6 +16,11 @@ public class ParametresGeneraux {
     @Column(length = 255)
     private String logoUrl;
 
+    /** Cahier_de_corrections_Le_Consulat.docx §4 : guide utilisateur au format PDF, importable
+     * par le Super Administrateur et téléchargeable par tous depuis Aide/Support. */
+    @Column(length = 255)
+    private String guidePdfUrl;
+
     @Column(nullable = false, length = 100)
     private String nomMagasin = "Le Consulat";
 
@@ -67,6 +72,14 @@ public class ParametresGeneraux {
 
     public void setLogoUrl(String logoUrl) {
         this.logoUrl = logoUrl;
+    }
+
+    public String getGuidePdfUrl() {
+        return guidePdfUrl;
+    }
+
+    public void setGuidePdfUrl(String guidePdfUrl) {
+        this.guidePdfUrl = guidePdfUrl;
     }
 
     public String getNomMagasin() {

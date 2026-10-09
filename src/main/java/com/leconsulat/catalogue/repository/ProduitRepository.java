@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,9 +40,13 @@ public interface ProduitRepository extends JpaRepository<Produit, Long> {
 
     /** Consu_corrige.docx §7 : produits suivis en stock actuellement sous (ou à) leur seuil
      * d'alerte — comparaison quantité/seuil ligne à ligne, impossible à exprimer en nom de
-     * méthode dérivé, d'où le JPQL explicite. */
+     * méthode dérivé, d'où le JPQL explicite.
+     * Cahier_de_corrections_Le_Consulat.docx §3 : le seuil retenu est celui du produit s'il en a
+     * un (priorité), sinon le seuil par défaut des paramètres généraux passé en paramètre — sans
+     * ce repli, un produit sans seuil personnalisé n'apparaissait jamais en alerte, même à sec. */
     @Query("select p from Produit p where p.etablissement = :etablissement and p.actif = true " +
-            "and p.suiviStock = true and p.seuilAlerte is not null and p.quantiteStock <= p.seuilAlerte " +
+            "and p.suiviStock = true and coalesce(p.seuilAlerte, :seuilDefaut) is not null " +
+            "and p.quantiteStock <= coalesce(p.seuilAlerte, :seuilDefaut) " +
             "order by p.nom")
-    List<Produit> findEnAlerteStock(@Param("etablissement") Etablissement etablissement);
+    List<Produit> findEnAlerteStock(@Param("etablissement") Etablissement etablissement, @Param("seuilDefaut") BigDecimal seuilDefaut);
 }

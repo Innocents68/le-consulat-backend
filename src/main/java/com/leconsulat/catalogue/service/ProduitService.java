@@ -84,9 +84,10 @@ public class ProduitService {
      * sous son seuil — vue consolidée des 3 établissements pour le Super Administrateur qui ne
      * filtre pas, comme le reste du tableau de bord. */
     public java.util.List<ProduitDto> alertesStock(Long etablissementIdDemande) {
+        var seuilDefaut = parametresService.getEntity().getSeuilAlerteDefaut();
         if (etablissementIdDemande == null && perimetreGuard.isSuperAdmin()) {
             return etablissementRepository.findAll().stream()
-                    .flatMap(e -> repository.findEnAlerteStock(e).stream())
+                    .flatMap(e -> repository.findEnAlerteStock(e, seuilDefaut).stream())
                     .map(ProduitDto::from)
                     .toList();
         }
@@ -97,7 +98,7 @@ public class ProduitService {
         if (cible == null) {
             throw new BusinessRuleException("Précisez un établissement");
         }
-        return repository.findEnAlerteStock(cible).stream().map(ProduitDto::from).toList();
+        return repository.findEnAlerteStock(cible, seuilDefaut).stream().map(ProduitDto::from).toList();
     }
 
     /** Point d'entrée unique pour "Scanner" (Nouvelle commande, Mouvements de stock) : essaie

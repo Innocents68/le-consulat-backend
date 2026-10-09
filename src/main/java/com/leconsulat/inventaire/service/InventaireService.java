@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** §6.6.5 : compare le stock théorique (issu des mouvements) au stock physique compté, calcule
  * les écarts puis génère les ajustements. */
@@ -203,6 +204,19 @@ public class InventaireService {
         Inventaire saved = repository.save(inventaire);
         journal.enregistrer("STOCKS", "INVENTAIRE_VALIDATION", "Inventaire " + saved.getNumero() + " validé, ajustements générés");
         return InventaireDto.from(saved);
+    }
+
+    /** Cahier_de_corrections_Le_Consulat.docx §2.7 : un inventaire non clôturé peut être supprimé
+     * (erreur de saisie, doublon...) ; au-delà de la clôture, des écarts/mouvements de stock
+     * potentiels en dépendent déjà, donc on protège CLOTURE et VALIDE. */
+    @Transactional
+    public void supprimer(Long id) {
+        Inventaire inventaire = findEntityChecked(id);
+        if (inventaire.getStatut() == StatutInventaire.CLOTURE || inventaire.getStatut() == StatutInventaire.VALIDE) {
+            throw new BusinessRuleException("Un inventaire clôturé ne peut pas être supprimé");
+        }
+        journal.enregistrer("STOCKS", "INVENTAIRE_SUPPRESSION", "Inventaire " + inventaire.getNumero() + " supprimé");
+        repository.delete(inventaire);
     }
 
     /** Export PDF/Excel d'un inventaire (§7 du cahier des charges Inventaire — appui à la demande

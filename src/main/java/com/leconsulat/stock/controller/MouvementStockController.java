@@ -5,7 +5,6 @@ import com.leconsulat.common.web.PageResponse;
 import com.leconsulat.stock.dto.EntreeStockRequest;
 import com.leconsulat.stock.dto.MouvementStockDto;
 import com.leconsulat.stock.dto.SortieStockRequest;
-import com.leconsulat.stock.dto.TransfertStockRequest;
 import com.leconsulat.stock.service.MouvementStockService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -50,11 +49,5 @@ public class MouvementStockController {
     @ResponseStatus(HttpStatus.CREATED)
     public MouvementStockDto sortie(@Valid @RequestBody SortieStockRequest req) {
         return service.sortie(req);
-    }
-
-    @PostMapping("/transferts")
-    @ResponseStatus(HttpStatus.CREATED)
-    public void transfert(@Valid @RequestBody TransfertStockRequest req) {
-        service.transfert(req);
     }
 }

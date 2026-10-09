@@ -40,4 +40,9 @@ public class ParametresController {
     public ParametresDto uploadLogo(@RequestParam("fichier") MultipartFile fichier) {
         return service.uploadLogo(fichier);
     }
+
+    @PostMapping(value = "/guide-pdf", consumes = "multipart/form-data")
+    public ParametresDto uploadGuidePdf(@RequestParam("fichier") MultipartFile fichier) {
+        return service.uploadGuidePdf(fichier);
+    }
 }

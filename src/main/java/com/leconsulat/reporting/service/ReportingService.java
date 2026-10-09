@@ -343,7 +343,11 @@ public class ReportingService {
     private StockLigneDto versStockLigne(Produit p) {
         BigDecimal valorisation = p.getPrixAchat() != null ? p.getQuantiteStock().multiply(p.getPrixAchat()) : null;
         boolean rupture = p.getQuantiteStock().compareTo(BigDecimal.ZERO) <= 0;
-        boolean sousSeuil = !rupture && p.getSeuilAlerte() != null && p.getQuantiteStock().compareTo(p.getSeuilAlerte()) <= 0;
+        // Cahier_de_corrections_Le_Consulat.docx §3 : seuil du produit en priorité, sinon repli sur
+        // le seuil par défaut des paramètres généraux (sans ce repli, un produit sans seuil
+        // personnalisé n'apparaissait jamais sous seuil, même à sec).
+        BigDecimal seuilEffectif = p.getSeuilAlerte() != null ? p.getSeuilAlerte() : parametresService.getEntity().getSeuilAlerteDefaut();
+        boolean sousSeuil = !rupture && seuilEffectif != null && p.getQuantiteStock().compareTo(seuilEffectif) <= 0;
         return new StockLigneDto(p.getId(), p.getNom(), p.getCategorie().getNom(), p.getQuantiteStock(),
                 p.getSeuilAlerte(), valorisation, rupture, sousSeuil);
     }

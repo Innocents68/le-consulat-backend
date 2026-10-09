@@ -20,6 +20,7 @@ import com.leconsulat.stock.repository.DemandeTransfertRepository;
 import com.leconsulat.utilisateur.entity.Utilisateur;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,12 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /** Demandes_amelioration_logiciel_Le_Consulat_Professionnel.docx §5 : formalise le transfert de
- * produit entre établissements — à la différence de {@code MouvementStockService.transfert}
- * (immédiat, réservé au Super Administrateur, RG-084), ici n'importe quel utilisateur peut
- * demander un transfert depuis son propre établissement (il choisit son produit, qu'il voit), mais
- * le mouvement de stock n'a lieu qu'après acceptation explicite par le responsable de
- * l'établissement destinataire (qui choisit alors le produit correspondant dans son propre
- * catalogue — jamais visible pour le demandeur, RG-002). */
+ * produit entre établissements — unique chemin désormais (Cahier_de_corrections_Le_Consulat.docx
+ * §1.1 : le transfert immédiat, ex RG-084, a été retiré). N'importe quel utilisateur peut demander
+ * un transfert depuis son propre établissement (il choisit son produit, qu'il voit), mais le
+ * mouvement de stock n'a lieu qu'après acceptation explicite par le responsable de l'établissement
+ * destinataire (qui choisit alors le produit correspondant dans son propre catalogue — jamais
+ * visible pour le demandeur, RG-002). */
 @Service
 @Transactional
 public class DemandeTransfertService {
@@ -134,7 +135,7 @@ public class DemandeTransfertService {
         d.setStatut(StatutDemandeTransfert.ACCEPTEE);
         d.setTraitePar(currentUtilisateur());
         d.setDateTraitement(LocalDateTime.now());
-        DemandeTransfert saved = repository.save(d);
+        DemandeTransfert saved = sauvegarderSansDoubleTraitement(d);
         journal.enregistrer("STOCKS", "DEMANDE_TRANSFERT_ACCEPTEE",
                 "Demande de transfert de " + d.getProduitSource().getNom() + " vers " + d.getEtablissementDestination().getNom()
                         + " acceptée (produit : " + destination.getNom() + ")");
@@ -154,11 +155,22 @@ public class DemandeTransfertService {
         d.setMotifRefus(req.motif());
         d.setTraitePar(currentUtilisateur());
         d.setDateTraitement(LocalDateTime.now());
-        DemandeTransfert saved = repository.save(d);
+        DemandeTransfert saved = sauvegarderSansDoubleTraitement(d);
         journal.enregistrer("STOCKS", "DEMANDE_TRANSFERT_REFUSEE",
                 "Demande de transfert de " + d.getProduitSource().getNom() + " vers " + d.getEtablissementDestination().getNom()
                         + " refusée" + (req.motif() != null ? " (motif : " + req.motif() + ")" : ""));
         return DemandeTransfertDto.from(saved);
+    }
+
+    /** Cahier_de_corrections_Le_Consulat.docx §1.4 : {@code saveAndFlush} force la vérification du
+     * verrou optimiste ({@code @Version}) à l'intérieur de cette méthode (donc rattrapable ici),
+     * plutôt qu'à la toute fin de la transaction Spring où elle échapperait à ce {@code catch}. */
+    private DemandeTransfert sauvegarderSansDoubleTraitement(DemandeTransfert d) {
+        try {
+            return repository.saveAndFlush(d);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessRuleException("Cette demande a déjà été traitée");
+        }
     }
 
     private StatutDemandeTransfert parseStatut(String statut) {

@@ -78,6 +78,12 @@ public class InventaireController {
         return service.valider(id);
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void supprimer(@PathVariable Long id) {
+        service.supprimer(id);
+    }
+
     /** Cahier_des_charges_amelioration_inventaire_Le_Consulat.docx — export du détail (théorique,
      * physique, écart, état) en PDF ou Excel. */
     @GetMapping("/{id}/export")

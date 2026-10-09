@@ -9,11 +9,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /** Demandes_amelioration_logiciel_Le_Consulat_Professionnel.docx §5 : formalise la demande, la
- * notification et l'acceptation/refus d'un transfert de produit entre établissements — remplace
- * le transfert direct (RG-084, resté disponible pour le Super Administrateur, cf.
- * {@code MouvementStockService.transfert}) pour l'usage courant d'un Gérant/Caissier, qui n'a
- * jamais visibilité sur le catalogue de l'établissement destinataire (RG-002). Le produit
- * destination n'est donc choisi qu'à l'acceptation, par le responsable de cet établissement. */
+ * notification et l'acceptation/refus d'un transfert de produit entre établissements — c'est
+ * désormais l'unique chemin pour tout transfert (Cahier_de_corrections_Le_Consulat.docx §1.1 :
+ * le transfert direct/immédiat, ex RG-084, a été retiré). Le produit destination n'est choisi
+ * qu'à l'acceptation, par le responsable de l'établissement destinataire, qui n'a jamais
+ * visibilité sur le catalogue de l'établissement source (RG-002). */
 @Entity
 @Table(name = "demandes_transfert")
 public class DemandeTransfert {
@@ -61,6 +61,13 @@ public class DemandeTransfert {
     private LocalDateTime dateDemande = LocalDateTime.now();
 
     private LocalDateTime dateTraitement;
+
+    /** Cahier_de_corrections_Le_Consulat.docx §1.4 : verrouillage optimiste pour empêcher qu'une
+     * même demande soit acceptée/refusée deux fois en cas d'appels concurrents (double-clic, retry
+     * réseau) — sans ce champ, deux transactions pouvaient toutes deux lire EN_ATTENTE avant que
+     * l'une ne committe et donc toutes deux appliquer le mouvement de stock. */
+    @Version
+    private Long version;
 
     public DemandeTransfert() {
     }
@@ -151,5 +158,9 @@ public class DemandeTransfert {
 
     public void setDateTraitement(LocalDateTime dateTraitement) {
         this.dateTraitement = dateTraitement;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 }
