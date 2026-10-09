@@ -65,8 +65,14 @@ public class DemandeTransfert {
     /** Cahier_de_corrections_Le_Consulat.docx §1.4 : verrouillage optimiste pour empêcher qu'une
      * même demande soit acceptée/refusée deux fois en cas d'appels concurrents (double-clic, retry
      * réseau) — sans ce champ, deux transactions pouvaient toutes deux lire EN_ATTENTE avant que
-     * l'une ne committe et donc toutes deux appliquer le mouvement de stock. */
+     * l'une ne committe et donc toutes deux appliquer le mouvement de stock.
+     * {@code columnDefinition} : sur une base déjà peuplée (ALTER TABLE ADD COLUMN), un DEFAULT
+     * backfille les lignes existantes — sans lui elles restent à NULL et Hibernate plante
+     * (NullPointerException) au premier UPDATE en essayant d'incrémenter une version nulle. Les
+     * lignes qui auraient tout de même échappé à ce DEFAULT (colonne déjà ajoutée sans lui avant ce
+     * correctif) sont rattrapées par {@code DemandeTransfertVersionBackfill} au démarrage. */
     @Version
+    @Column(columnDefinition = "bigint default 0")
     private Long version;
 
     public DemandeTransfert() {
