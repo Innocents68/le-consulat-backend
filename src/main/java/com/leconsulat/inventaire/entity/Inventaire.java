@@ -37,10 +37,13 @@ public class Inventaire {
      * {@code mode} est un mot réservé PostgreSQL (fonction d'agrégat à ensemble ordonné), qui
      * fait planter toute requête générée par Hibernate référençant cette colonne ("WITHIN GROUP
      * is required for ordered-set aggregate mode") — invisible en H2 (dev), qui ne réserve pas ce
-     * mot. Les lignes déjà en base sous l'ancien nom sont rattrapées par
-     * {@code InventaireModeColumnMigration} au démarrage. */
+     * mot. {@code columnDefinition} avec DEFAULT obligatoire ici : sur une table déjà peuplée,
+     * PostgreSQL refuse un ADD COLUMN ... NOT NULL sans défaut, et {@code ddl-auto=update} avale
+     * cette erreur en silence (simple warning), laissant la colonne tout bonnement absente — c'est
+     * exactement ce qui s'est produit en production avant ce correctif. Les lignes déjà en base
+     * sous l'ancien nom sont rattrapées par {@code InventaireModeColumnMigration} au démarrage. */
     @Enumerated(EnumType.STRING)
-    @Column(name = "mode_inventaire", nullable = false, length = 20)
+    @Column(name = "mode_inventaire", nullable = false, columnDefinition = "varchar(20) default 'RAPIDE'")
     private ModeInventaire mode = ModeInventaire.RAPIDE;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
