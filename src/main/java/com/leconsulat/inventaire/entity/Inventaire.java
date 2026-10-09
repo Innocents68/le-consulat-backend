@@ -32,9 +32,15 @@ public class Inventaire {
     @Column(nullable = false, length = 20)
     private StatutInventaire statut = StatutInventaire.BROUILLON;
 
-    /** Cahier_des_charges_amelioration_inventaire_Le_Consulat.docx §12 — figé à la création. */
+    /** Cahier_des_charges_amelioration_inventaire_Le_Consulat.docx §12 — figé à la création.
+     * Colonne nommée explicitement {@code mode_inventaire} (pas {@code mode}, nom par défaut) :
+     * {@code mode} est un mot réservé PostgreSQL (fonction d'agrégat à ensemble ordonné), qui
+     * fait planter toute requête générée par Hibernate référençant cette colonne ("WITHIN GROUP
+     * is required for ordered-set aggregate mode") — invisible en H2 (dev), qui ne réserve pas ce
+     * mot. Les lignes déjà en base sous l'ancien nom sont rattrapées par
+     * {@code InventaireModeColumnMigration} au démarrage. */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(name = "mode_inventaire", nullable = false, length = 20)
     private ModeInventaire mode = ModeInventaire.RAPIDE;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
