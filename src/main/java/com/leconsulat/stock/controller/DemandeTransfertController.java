@@ -2,7 +2,6 @@ package com.leconsulat.stock.controller;
 
 import com.leconsulat.common.util.PageableUtil;
 import com.leconsulat.common.web.PageResponse;
-import com.leconsulat.stock.dto.AccepterDemandeTransfertRequest;
 import com.leconsulat.stock.dto.CreerDemandeTransfertRequest;
 import com.leconsulat.stock.dto.DemandeTransfertDto;
 import com.leconsulat.stock.dto.RefuserDemandeTransfertRequest;
@@ -56,8 +55,8 @@ public class DemandeTransfertController {
     }
 
     @PostMapping("/{id}/accepter")
-    public DemandeTransfertDto accepter(@PathVariable Long id, @Valid @RequestBody AccepterDemandeTransfertRequest req) {
-        return service.accepter(id, req);
+    public DemandeTransfertDto accepter(@PathVariable Long id) {
+        return service.accepter(id);
     }
 
     @PostMapping("/{id}/refuser")

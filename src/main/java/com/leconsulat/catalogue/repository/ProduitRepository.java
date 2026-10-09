@@ -36,6 +36,11 @@ public interface ProduitRepository extends JpaRepository<Produit, Long> {
 
     boolean existsByEtablissementAndNomIgnoreCase(Etablissement etablissement, String nom);
 
+    /** Cahier_de_corrections_Le_Consulat.docx (retour utilisateur) : à l'acceptation d'un
+     * transfert, le produit destination est résolu automatiquement par correspondance de nom
+     * plutôt que choisi manuellement — voir {@code DemandeTransfertService}. */
+    Optional<Produit> findByEtablissementAndNomIgnoreCase(Etablissement etablissement, String nom);
+
     boolean existsByFournisseurId(Long fournisseurId);
 
     /** Consu_corrige.docx §7 : produits suivis en stock actuellement sous (ou à) leur seuil

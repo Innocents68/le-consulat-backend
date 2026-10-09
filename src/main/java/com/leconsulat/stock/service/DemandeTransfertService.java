@@ -1,6 +1,8 @@
 package com.leconsulat.stock.service;
 
+import com.leconsulat.catalogue.entity.Categorie;
 import com.leconsulat.catalogue.entity.Produit;
+import com.leconsulat.catalogue.repository.CategorieRepository;
 import com.leconsulat.catalogue.repository.ProduitRepository;
 import com.leconsulat.common.audit.JournalOperationService;
 import com.leconsulat.common.exception.BusinessRuleException;
@@ -10,7 +12,6 @@ import com.leconsulat.etablissement.entity.Etablissement;
 import com.leconsulat.etablissement.repository.EtablissementRepository;
 import com.leconsulat.security.CustomUserDetails;
 import com.leconsulat.security.PerimetreGuard;
-import com.leconsulat.stock.dto.AccepterDemandeTransfertRequest;
 import com.leconsulat.stock.dto.CreerDemandeTransfertRequest;
 import com.leconsulat.stock.dto.DemandeTransfertDto;
 import com.leconsulat.stock.dto.RefuserDemandeTransfertRequest;
@@ -30,26 +31,30 @@ import java.time.LocalDateTime;
 /** Demandes_amelioration_logiciel_Le_Consulat_Professionnel.docx §5 : formalise le transfert de
  * produit entre établissements — unique chemin désormais (Cahier_de_corrections_Le_Consulat.docx
  * §1.1 : le transfert immédiat, ex RG-084, a été retiré). N'importe quel utilisateur peut demander
- * un transfert depuis son propre établissement (il choisit son produit, qu'il voit), mais le
- * mouvement de stock n'a lieu qu'après acceptation explicite par le responsable de l'établissement
- * destinataire (qui choisit alors le produit correspondant dans son propre catalogue — jamais
- * visible pour le demandeur, RG-002). */
+ * un transfert depuis son propre établissement (il choisit son produit, qu'il voit) ; le mouvement
+ * de stock n'a lieu qu'après acceptation explicite par le responsable de l'établissement
+ * destinataire. Retour utilisateur (Octobre 2026) : le choix manuel du produit destination à
+ * l'acceptation a été retiré, jugé superflu — {@link #accepter} résout désormais automatiquement
+ * (ou crée) le produit correspondant dans le catalogue destinataire, par correspondance de nom. */
 @Service
 @Transactional
 public class DemandeTransfertService {
 
     private final DemandeTransfertRepository repository;
     private final ProduitRepository produitRepository;
+    private final CategorieRepository categorieRepository;
     private final EtablissementRepository etablissementRepository;
     private final PerimetreGuard perimetreGuard;
     private final MouvementStockService mouvementStockService;
     private final JournalOperationService journal;
 
     public DemandeTransfertService(DemandeTransfertRepository repository, ProduitRepository produitRepository,
-                                    EtablissementRepository etablissementRepository, PerimetreGuard perimetreGuard,
-                                    MouvementStockService mouvementStockService, JournalOperationService journal) {
+                                    CategorieRepository categorieRepository, EtablissementRepository etablissementRepository,
+                                    PerimetreGuard perimetreGuard, MouvementStockService mouvementStockService,
+                                    JournalOperationService journal) {
         this.repository = repository;
         this.produitRepository = produitRepository;
+        this.categorieRepository = categorieRepository;
         this.etablissementRepository = etablissementRepository;
         this.perimetreGuard = perimetreGuard;
         this.mouvementStockService = mouvementStockService;
@@ -114,8 +119,12 @@ public class DemandeTransfertService {
         return repository.countByEtablissementDestination_IdAndStatut(cible.getId(), StatutDemandeTransfert.EN_ATTENTE);
     }
 
+    /** Retour utilisateur (Octobre 2026) : "cette action n'est pas nécessaire" — le choix manuel du
+     * produit destination a été retiré. Résolution automatique par nom ({@link
+     * #resoudreOuCreerProduitDestination}), création du produit (et de sa catégorie) dans le
+     * catalogue destinataire si rien ne correspond encore. */
     @Transactional
-    public DemandeTransfertDto accepter(Long id, AccepterDemandeTransfertRequest req) {
+    public DemandeTransfertDto accepter(Long id) {
         DemandeTransfert d = repository.findById(id).orElseThrow(() -> ResourceNotFoundException.of("DemandeTransfert", id));
         if (!perimetreGuard.aAcces(d.getEtablissementDestination())) {
             throw ResourceNotFoundException.of("DemandeTransfert", id);
@@ -123,11 +132,7 @@ public class DemandeTransfertService {
         if (d.getStatut() != StatutDemandeTransfert.EN_ATTENTE) {
             throw new BusinessRuleException("Cette demande a déjà été traitée");
         }
-        Produit destination = produitRepository.findById(req.produitDestinationId())
-                .orElseThrow(() -> ResourceNotFoundException.of("Produit", req.produitDestinationId()));
-        if (!destination.getEtablissement().getId().equals(d.getEtablissementDestination().getId())) {
-            throw new BusinessRuleException("Ce produit n'appartient pas à votre établissement");
-        }
+        Produit destination = resoudreOuCreerProduitDestination(d.getProduitSource(), d.getEtablissementDestination());
         // Le stock source a pu changer depuis la demande : effectuerTransfert revérifie la
         // suffisance et échoue proprement (BusinessRuleException) si elle ne l'est plus.
         mouvementStockService.effectuerTransfert(d.getProduitSource(), destination, d.getQuantite());
@@ -140,6 +145,41 @@ public class DemandeTransfertService {
                 "Demande de transfert de " + d.getProduitSource().getNom() + " vers " + d.getEtablissementDestination().getNom()
                         + " acceptée (produit : " + destination.getNom() + ")");
         return DemandeTransfertDto.from(saved);
+    }
+
+    /** Même produit (par nom, insensible à la casse) déjà au catalogue destinataire → réutilisé ;
+     * sinon créé à la volée (catégorie incluse si elle n'existe pas non plus) à partir de la fiche
+     * du produit source — pas de saisie manuelle. */
+    private Produit resoudreOuCreerProduitDestination(Produit source, Etablissement destination) {
+        return produitRepository.findByEtablissementAndNomIgnoreCase(destination, source.getNom())
+                .orElseGet(() -> creerProduitDestination(source, destination));
+    }
+
+    private Produit creerProduitDestination(Produit source, Etablissement destination) {
+        Categorie categorie = categorieRepository.findByEtablissementAndNomIgnoreCase(destination, source.getCategorie().getNom())
+                .orElseGet(() -> {
+                    Categorie c = new Categorie();
+                    c.setEtablissement(destination);
+                    c.setNom(source.getCategorie().getNom());
+                    c.setActif(true);
+                    return categorieRepository.save(c);
+                });
+        Produit p = new Produit();
+        p.setEtablissement(destination);
+        p.setNom(source.getNom());
+        p.setCategorie(categorie);
+        p.setDescription(source.getDescription());
+        p.setUnite(source.getUnite());
+        p.setPrixVente(source.getPrixVente());
+        p.setPrixAchat(source.getPrixAchat());
+        p.setDisponible(true);
+        p.setActif(true);
+        p.setSuiviStock(true);
+        Produit saved = produitRepository.save(p);
+        // Même rattrapage que ProduitService.create() : le code interne est dérivé de l'id, donc
+        // connu seulement après ce premier enregistrement.
+        saved.setCodeBarre("P" + saved.getId());
+        return produitRepository.save(saved);
     }
 
     @Transactional
